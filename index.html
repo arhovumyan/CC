@@ -2,35 +2,178 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Match Duel — match-3 prototype</title>
 <style>
+  *, *::before, *::after { box-sizing: border-box; }
   html, body {
     margin: 0;
+    width: 100%;
     height: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
     background: #1e1e26;
     color: #eee;
     font-family: -apple-system, system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    user-select: none;
   }
+  #menu-shell {
+    display: none;
+    width: 100%;
+    max-width: 100vw;
+    max-height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding:
+      max(12px, env(safe-area-inset-top, 0))
+      max(12px, env(safe-area-inset-right, 0))
+      max(12px, env(safe-area-inset-bottom, 0))
+      max(12px, env(safe-area-inset-left, 0));
+    box-sizing: border-box;
+  }
+  #menu-shell.show { display: flex; }
   #hud {
     display: flex;
-    gap: 32px;
-    font-size: 22px;
-    margin-bottom: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: clamp(8px, 2.5vw, 24px);
+    row-gap: 6px;
+    margin-bottom: clamp(6px, 1.5vw, 14px);
     font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 4px;
   }
-  #hud .label { color: #9a9aae; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-  #hud .val { font-size: 24px; font-weight: 600; }
-  #wrap { position: relative; width: 80vmin; height: 80vmin; }
-  #game { background: #2a2a36; border-radius: 8px; cursor: pointer; display: block; width: 100%; height: 100%; object-fit: contain; }
-  #fx { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; object-fit: contain; }
+  #hud > div { text-align: center; min-width: 52px; }
+  #hud .label { color: #9a9aae; font-size: clamp(10px, 2.8vw, 14px); text-transform: uppercase; letter-spacing: 0.5px; }
+  #hud .val { font-size: clamp(16px, 4.5vw, 24px); font-weight: 600; }
+  .wallet-coins {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .wallet-coins .coin-icon {
+    width: clamp(20px, 5vw, 28px);
+    height: clamp(20px, 5vw, 28px);
+    object-fit: contain;
+    display: block;
+  }
+  /* A reserved, right-aligned row above the board — it lives OUTSIDE the grid and
+     its space is always reserved, so fading it in never reflows anything. */
+  #combo-bonus {
+    width: min(94vw, calc(100dvh - 10.5rem));
+    max-width: 100%;
+    height: 20px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  #combo-bonus.active { opacity: 1; }
+  #combo-bonus .bonus-label {
+    font-size: clamp(10px, 2.6vw, 13px);
+    color: #ffe14d;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  #combo-bonus .bonus-track {
+    width: clamp(90px, 28vw, 180px);
+    height: 6px;
+    background: #3a3a48;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #combo-bonus .bonus-fill {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #ffe14d, #ff9f43);
+    border-radius: 3px;
+    transform-origin: left center;
+    transition: transform 0.05s linear;
+  }
+  #game-ui {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    padding:
+      max(clamp(6px, 2vw, 12px), env(safe-area-inset-top, 0))
+      max(clamp(6px, 2vw, 12px), env(safe-area-inset-right, 0))
+      max(clamp(6px, 2vw, 12px), env(safe-area-inset-bottom, 0))
+      max(clamp(6px, 2vw, 12px), env(safe-area-inset-left, 0));
+    box-sizing: border-box;
+  }
+  #board-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #wrap {
+    position: relative;
+    --board-size: min(94vw, calc(100dvh - 10.5rem), 100%);
+    width: var(--board-size);
+    height: var(--board-size);
+    max-width: 100%;
+    max-height: 100%;
+    flex-shrink: 1;
+  }
+  #game {
+    background: #2a2a36;
+    border-radius: 8px;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+  /* Faint cell separators ("boxes") drawn over the board. --cols/--rows are set
+     in JS to match the current grid; lines sit at each cell boundary at low
+     opacity so they're barely visible and never look strict. */
+  #grid-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 8px;
+    --cols: 8;
+    --rows: 8;
+    background-image:
+      repeating-linear-gradient(to right, rgba(255,255,255,0.3) 0 1px, transparent 1px calc(100% / var(--cols))),
+      repeating-linear-gradient(to bottom, rgba(255,255,255,0.3) 0 1px, transparent 1px calc(100% / var(--rows)));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);
+  }
+  #fx { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; }
   #overlay {
     position: absolute; inset: 0;
+    z-index: 20;
     display: none;
     flex-direction: column;
     align-items: center;
@@ -40,9 +183,17 @@
     text-align: center;
   }
   #overlay.show { display: flex; }
-  #overlay .big { font-size: 38px; font-weight: 700; }
-  #overlay .sub { font-size: 18px; color: #c5c5d6; margin-top: 10px; }
-  #hint { margin-top: 14px; color: #8a8a9c; font-size: 13px; }
+  #overlay .big { font-size: clamp(22px, 6vw, 38px); font-weight: 700; padding: 0 12px; }
+  #overlay .sub { font-size: clamp(14px, 3.5vw, 18px); color: #c5c5d6; margin-top: 10px; padding: 0 12px; }
+  #hint {
+    margin-top: clamp(4px, 1vw, 10px);
+    color: #8a8a9c;
+    font-size: clamp(11px, 2.8vw, 13px);
+    text-align: center;
+    padding: 0 8px;
+    flex-shrink: 0;
+    max-width: 100%;
+  }
 
   #splash {
     position: fixed;
@@ -59,39 +210,152 @@
     object-fit: cover;
     display: none;
   }
+  @media (max-width: 768px) {
+    #splash img { object-fit: contain; }
+  }
   #splash img.active {
     display: block;
   }
 
-  #game-ui {
+  #coin-fx {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 900;
+  }
+
+  /* Level cleared — centered art + buttons; coins fall behind (z-index 900). */
+  #level-pass {
+    position: fixed;
+    inset: 0;
+    z-index: 910;
     display: none;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  /* Dims only the game layer — sits below coins (900) and level-pass UI (910). */
+  #win-dim {
+    position: fixed;
+    inset: 0;
+    z-index: 850;
+    background: rgba(12, 12, 18, 0.78);
+    display: none;
+    pointer-events: none;
+  }
+  #win-dim.show { display: block; }
+
+  #level-pass.show {
+    display: flex;
+    pointer-events: auto;
+  }
+  #level-pass .level-pass-panel {
+    position: relative;
+    z-index: 1;
+    display: flex;
     flex-direction: column;
     align-items: center;
+    width: min(480px, 72vw);
+    max-height: 94dvh;
+    transform-origin: center center;
+    opacity: 0;
+    transform: scale(0.06);
+  }
+  #level-pass.show.enter-in .level-pass-panel {
+    animation:
+      level-pass-fade-in 1s ease-out forwards,
+      level-pass-pop-in 0.5s cubic-bezier(0.34, 1.55, 0.64, 1) forwards;
+  }
+  @keyframes level-pass-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes level-pass-pop-in {
+    0% { transform: scale(0.06); }
+    62% { transform: scale(1.1); }
+    80% { transform: scale(0.96); }
+    100% { transform: scale(1); }
+  }
+  @media (min-width: 769px) {
+    #level-pass .level-pass-panel {
+      width: min(672px, 85vw);
+    }
+  }
+  #level-pass .level-pass-banner {
     width: 100%;
+    height: auto;
+    display: block;
+    pointer-events: none;
+  }
+  #level-pass .level-pass-actions {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: clamp(10px, 3vw, 22px);
+    width: 100%;
+    margin-top: clamp(6px, 1.2vw, 14px);
+  }
+  #level-pass .level-pass-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 50%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #level-pass .level-pass-btn img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  #btn-next-level.pulsing img {
+    animation: level-pass-pulse 0.55s ease-in-out infinite;
+  }
+  @keyframes level-pass-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+  @media (max-width: 768px) {
+    #level-pass .level-pass-panel {
+      width: min(94vw, 520px);
+    }
   }
 
   #level-menu {
     display: none;
     grid-template-columns: repeat(5, 1fr);
-    gap: 16px;
+    gap: clamp(6px, 2vw, 14px);
     background: #2a2a36;
-    padding: 32px;
+    padding: clamp(12px, 4vw, 28px);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    width: min(100%, 380px);
+    max-width: calc(100vw - 24px);
   }
   .level-btn {
-    width: 72px;
-    height: 72px;
+    width: 100%;
+    aspect-ratio: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #1e1e26;
-    border-radius: 12px;
-    font-size: 28px;
+    border-radius: clamp(8px, 2vw, 12px);
+    font-size: clamp(15px, 4.5vw, 26px);
     font-weight: bold;
     color: #555;
     cursor: not-allowed;
     user-select: none;
+    touch-action: manipulation;
   }
   .level-btn.active {
     background: #e84d57;
@@ -112,28 +376,49 @@
   #hearts-bar {
     grid-column: 1 / -1;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 26px;
+    gap: clamp(12px, 4vw, 28px);
+    margin-bottom: 6px;
+    font-size: clamp(18px, 5vw, 26px);
   }
-  #hearts-bar .regen { font-size: 13px; color: #9a9aae; font-variant-numeric: tabular-nums; }
+  #hearts-bar .menu-coins {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: clamp(16px, 4.5vw, 22px);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  #hearts-bar .menu-coins .coin-icon {
+    width: clamp(22px, 5.5vw, 30px);
+    height: clamp(22px, 5.5vw, 30px);
+    object-fit: contain;
+  }
+  #hearts-bar .regen { font-size: clamp(11px, 2.8vw, 13px); color: #9a9aae; font-variant-numeric: tabular-nums; }
   .heart-full { color: #e84d57; }
   .heart-empty { color: #4a4a58; }
 
   #menu-btn {
-    margin-top: 14px;
-    padding: 8px 18px;
+    margin-top: clamp(6px, 1.5vw, 12px);
+    padding: 10px 20px;
     background: #2a2a36;
     color: #c5c5d6;
     border: 1px solid #3a3a48;
     border-radius: 8px;
     font: inherit;
-    font-size: 14px;
+    font-size: clamp(13px, 3.5vw, 14px);
     cursor: pointer;
+    flex-shrink: 0;
+    touch-action: manipulation;
   }
   #menu-btn:hover { background: #353543; color: #fff; }
+
+  @media (max-height: 520px) {
+    #wrap { --board-size: min(88vw, calc(100dvh - 7rem)); }
+    #hint { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -142,6 +427,7 @@
     <img id="splash-loader" src="loader.png" />
   </div>
 
+  <div id="menu-shell">
   <div id="level-menu">
     <div id="hearts-bar"></div>
     <div class="level-btn active" id="btn-level-1">1</div>
@@ -165,25 +451,51 @@
     <div class="level-btn locked">19</div>
     <div class="level-btn locked">20</div>
   </div>
+  </div>
 
   <div id="game-ui">
     <div id="hud">
       <div><div class="label">Level</div><div class="val" id="level">1</div></div>
       <div><div class="label">Score</div><div class="val" id="score">0</div></div>
       <div><div class="label">Goal</div><div class="val" id="goal">0</div></div>
-      <div><div class="label">Time</div><div class="val" id="time">90</div></div>
+      <div><div class="label">Moves</div><div class="val" id="moves">0</div></div>
       <div><div class="label">Lives</div><div class="val" id="play-hearts"></div></div>
+      <div><div class="label">Coins</div><div class="val wallet-coins" id="play-coins"></div></div>
     </div>
+    <div id="combo-bonus">
+      <div class="bonus-label" id="combo-bonus-label">Combo bonus +20%</div>
+      <div class="bonus-track"><div class="bonus-fill" id="combo-bonus-fill"></div></div>
+    </div>
+    <div id="board-area">
     <div id="wrap">
       <canvas id="game"></canvas>
+      <div id="grid-overlay"></div>
       <canvas id="fx"></canvas>
       <div id="overlay">
-        <div class="big" id="ovBig">TIME!</div>
+        <div class="big" id="ovBig">Level over</div>
         <div class="sub" id="ovSub">Press R or click to play again</div>
       </div>
     </div>
-    <div id="hint">Drag a candy onto a neighbor to swap. Match 3+ in a row or column.</div>
+    </div>
+    <div id="hint">Drag to swap. Match 3+ — reach the goal before moves run out.</div>
     <button id="menu-btn">☰ Menu</button>
+  </div>
+
+  <div id="win-dim"></div>
+  <canvas id="coin-fx"></canvas>
+
+  <div id="level-pass">
+    <div class="level-pass-panel">
+      <img class="level-pass-banner" src="levelpassed.png" alt="Good Job! You passed the level!" />
+      <div class="level-pass-actions">
+        <button type="button" id="btn-back-menu" class="level-pass-btn" aria-label="Back to Menu">
+          <img src="BackToMenu.png" alt="Back to Menu" />
+        </button>
+        <button type="button" id="btn-next-level" class="level-pass-btn" aria-label="Next Level">
+          <img src="NextLevel.png" alt="Next Level" />
+        </button>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -427,7 +739,6 @@ class Board {
 // COLOR_COUNT stays 5 so every color/sprite is always in play.
 let WIDTH = 8, HEIGHT = 8;
 const COLOR_COUNT = 5;
-const MATCH_SECONDS = 90;
 const CELL = 56;
 const GAP = 4;
 
@@ -458,6 +769,101 @@ const DPR = Math.max(2, window.devicePixelRatio || 1); // multiply resolution fo
 // on top of the board without being wiped by the board's per-frame redraws.
 const fx = document.getElementById("fx");
 const fxCtx = fx.getContext("2d");
+const coinCanvas = document.getElementById("coin-fx");
+const coinCtx = coinCanvas.getContext("2d");
+const coinImg = new Image();
+coinImg.src = "coin.png";
+let coinRain = null;
+
+function resizeCoinCanvas() {
+  const dpr = Math.max(2, window.devicePixelRatio || 1);
+  coinCanvas.width = Math.floor(window.innerWidth * dpr);
+  coinCanvas.height = Math.floor(window.innerHeight * dpr);
+  coinCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resizeCoinCanvas();
+window.addEventListener("resize", resizeCoinCanvas);
+
+function clearCoinRain() {
+  coinRain = null;
+  flyingWalletCoins = [];
+  coinCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+}
+
+function spawnCoinRain() {
+  resizeCoinCanvas();
+  const w = window.innerWidth;
+  const count = 50 + Math.floor(Math.random() * 51);
+  coinRain = [];
+  for (let i = 0; i < count; i++) {
+    const size = 22 + Math.random() * 42;
+    coinRain.push({
+      x: Math.random() * w,
+      y: -(30 + Math.random() * (window.innerHeight * 0.65 + 120)),
+      vx: (Math.random() - 0.5) * 90,
+      vy: 140 + Math.random() * 260,
+      size,
+      rot: Math.random() * Math.PI * 2,
+      rotSpd: (Math.random() - 0.5) * 5.5,
+      flipX: Math.random() < 0.5 ? -1 : 1,
+      flipY: Math.random() < 0.5 ? -1 : 1,
+    });
+  }
+}
+
+function updateFlyingWalletCoins(now) {
+  if (flyingWalletCoins.length === 0) return;
+  const ready = coinImg.complete && coinImg.naturalWidth > 0;
+  const aspect = ready ? coinImg.naturalWidth / coinImg.naturalHeight : 1;
+  for (const c of flyingWalletCoins) {
+    const t = Math.min(1, Math.max(0, (now - c.start) / c.duration));
+    const e = 1 - Math.pow(1 - t, 2.2);
+    const x = c.x + (c.tx - c.x) * e;
+    const y = c.y + (c.ty - c.y) * e - Math.sin(t * Math.PI) * 32;
+    const alpha = t < 0.1 ? t / 0.1 : 1;
+    if (!ready) continue;
+    const ch = c.size;
+    const cw = ch * aspect;
+    coinCtx.save();
+    coinCtx.globalAlpha = alpha;
+    coinCtx.drawImage(coinImg, x - cw / 2, y - ch / 2, cw, ch);
+    coinCtx.restore();
+  }
+  flyingWalletCoins = flyingWalletCoins.filter((c) => now < c.start + c.duration);
+}
+
+function updateCoinRain(dt) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  coinCtx.clearRect(0, 0, w, h);
+  updateFlyingWalletCoins(performance.now());
+
+  if (!coinRain || coinRain.length === 0) {
+    if (coinRain) clearCoinRain();
+    return;
+  }
+  const ready = coinImg.complete && coinImg.naturalWidth > 0;
+  const aspect = ready ? coinImg.naturalWidth / coinImg.naturalHeight : 1;
+
+  for (const c of coinRain) {
+    c.x += c.vx * dt;
+    c.y += c.vy * dt;
+    c.rot += c.rotSpd * dt;
+    if (c.y > h + c.size * 2) continue;
+    if (!ready) continue;
+    const ch = c.size;
+    const cw = ch * aspect;
+    coinCtx.save();
+    coinCtx.translate(c.x, c.y);
+    coinCtx.rotate(c.rot);
+    coinCtx.scale(c.flipX, c.flipY);
+    coinCtx.drawImage(coinImg, -cw / 2, -ch / 2, cw, ch);
+    coinCtx.restore();
+  }
+
+  coinRain = coinRain.filter((c) => c.y <= h + c.size * 2);
+  if (coinRain.length === 0) clearCoinRain();
+}
 
 // Size both canvases to the current grid. Setting canvas.width resets the 2D
 // transform, so the DPR scale is (re)applied here — call after WIDTH/HEIGHT change.
@@ -468,23 +874,36 @@ function resizeBoard() {
   fx.width = WIDTH * CELL * DPR;
   fx.height = HEIGHT * CELL * DPR;
   fxCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const gridOverlay = document.getElementById("grid-overlay");
+  if (gridOverlay) {
+    gridOverlay.style.setProperty("--cols", WIDTH);
+    gridOverlay.style.setProperty("--rows", HEIGHT);
+  }
 }
 resizeBoard();
 
 const scoreEl = document.getElementById("score");
-const timeEl = document.getElementById("time");
+const movesEl = document.getElementById("moves");
 const levelEl = document.getElementById("level");
 const goalEl = document.getElementById("goal");
 const overlay = document.getElementById("overlay");
 const ovBig = document.getElementById("ovBig");
 const ovSub = document.getElementById("ovSub");
 
-let board, selX = -1, selY = -1, score = 0, timeLeft = MATCH_SECONDS;
-let gameOver = false, resolving = false;
+let board, selX = -1, selY = -1, score = 0;
+let movesLeft = 0, levelMoves = 0;
+let gameOver = false, resolving = false, autoFinishing = false;
+let levelGoalCelebrated = false;
+let passCelebrationPending = false;
+let lastMatchBoardX = 0, lastMatchBoardY = 0;
+let flyingWalletCoins = [];
 let seed = 12345;
 let lastTs = 0;
 let particles = [];      // active sparkle particles
 let comboPopup = null;   // { text, start } for the "Double/Triple" pop
+const COMBO_BONUS_MS = 6000;
+let comboBonusUntil = 0; // perf-now deadline for the bonus window
+let comboBonusPct = 0;   // active bonus rate (0.20 = +20%, etc.)
 let lastActivity = 0;    // perf-now of the last input; drives the idle hint
 let hint = null;         // { cells: [{x,y},{x,y}], start } while the hint pulses
 
@@ -496,22 +915,37 @@ const HINT_PULSES = 2;       // grow/shrink cycles packed into the duration
 // All 5 colors are always present; difficulty rises on these tunable dials:
 //   grid    — the board grows from 6x6 up to 12x12. A bigger board is harder
 //             to read and to find/line up combos on. This is the main dial.
-//   seconds — less time each level, so the goal must be hit efficiently.
 //   target  — the points needed to clear the level (the gate to advance).
+//   moves   — deterministic swap budget; fewer per level (tighter cushion) but
+//             always floored so the goal stays reachable with normal play.
 //   hints   — the idle helper turns off once it gets hard.
 const MAX_LEVEL = 20;
+
+// Deterministic move budget from level + goal. Not random. Cushion shrinks each
+// level so later rounds are tighter; floor assumes ~28 pts per successful swap.
+function movesForLevel(level, target, grid) {
+  const PTS_ASSUMED = 36;
+  const baseNeed = target / PTS_ASSUMED;
+  const cushion = Math.max(0.18, 1.25 - (level - 1) * 0.055);
+  let moves = Math.ceil(baseNeed * (1 + cushion));
+  moves = Math.ceil(moves * (1 - (grid - 6) * 0.015));
+  const beatableFloor = Math.ceil(target / 28) + 3;
+  return Math.max(14, beatableFloor, moves);
+}
+
 function levelConfig(level) {
+  const grid = Math.min(12, 6 + Math.floor((level - 1) / 3));
+  const target = 150 + (level - 1) * 150;
   return {
-    grid: Math.min(12, 6 + Math.floor((level - 1) / 3)), // 6x6 → 12x12 over 20
-    seconds: Math.max(45, 90 - (level - 1) * 3),         // 90 down to 45
-    target: 150 + (level - 1) * 150,                     // 150 → 3000
+    grid,
+    target,
+    moves: movesForLevel(level, target, grid),
     hints: level <= 6,
   };
 }
 
 let currentLevel = 1;
 let levelTarget = 0;        // points needed to clear the current level
-let levelSeconds = MATCH_SECONDS;
 let hintsEnabled = true;
 let inLevel = false;        // true only while a level is actually being played
 let won = false;            // did the last round end by reaching the target?
@@ -527,8 +961,99 @@ function saveUnlocked() {
 }
 let unlockedLevel = loadUnlocked();
 
+// ---- Wallet (coins) -------------------------------------------------------
+// Level clear reward curves upward (not linear): 500 at level 1, then ~level^1.28.
+let walletCoins = 0;
+
+function levelCoinReward(level) {
+  return Math.round(500 * Math.pow(Math.max(1, level), 1.28));
+}
+
+function autoMoveCoinBonus(level) {
+  return Math.round(levelCoinReward(level) * 0.05);
+}
+
+function loadCoins() {
+  try {
+    const v = parseInt(localStorage.getItem("matchDuel.coins"), 10);
+    if (!isNaN(v)) walletCoins = Math.max(0, v);
+  } catch (e) {}
+}
+
+function saveCoins() {
+  try { localStorage.setItem("matchDuel.coins", String(walletCoins)); } catch (e) {}
+}
+
+function addCoins(amount, animateFromMatch = true) {
+  if (amount <= 0) return;
+  walletCoins += amount;
+  saveCoins();
+  renderWallet();
+  if (animateFromMatch && inLevel) spawnFlyingCoinsToWallet();
+}
+
+function updateLastMatchCenter(matched) {
+  let sx = 0, sy = 0, n = 0;
+  for (const key of matched) {
+    const [x, y] = key.split(",").map(Number);
+    sx += x * CELL + CELL / 2;
+    sy += (HEIGHT - 1 - y) * CELL + CELL / 2;
+    n++;
+  }
+  if (n > 0) {
+    lastMatchBoardX = sx / n;
+    lastMatchBoardY = sy / n;
+  }
+}
+
+function boardPointToScreen(bx, by) {
+  const wrap = document.getElementById("wrap");
+  const r = wrap.getBoundingClientRect();
+  const bw = WIDTH * CELL, bh = HEIGHT * CELL;
+  return {
+    x: r.left + (bx / bw) * r.width,
+    y: r.top + (by / bh) * r.height,
+  };
+}
+
+function walletCoinTarget() {
+  const el = document.getElementById("play-coins");
+  if (!el) return { x: window.innerWidth * 0.5, y: 32, size: 24 };
+  const icon = el.querySelector(".coin-icon") || el;
+  const r = icon.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2, size: r.width };
+}
+
+function spawnFlyingCoinsToWallet() {
+  const from = boardPointToScreen(lastMatchBoardX, lastMatchBoardY);
+  const to = walletCoinTarget();
+  const n = 1 + Math.floor(Math.random() * 3);
+  const now = performance.now();
+  for (let i = 0; i < n; i++) {
+    flyingWalletCoins.push({
+      x: from.x + (Math.random() - 0.5) * 40,
+      y: from.y + (Math.random() - 0.5) * 40,
+      tx: to.x + (Math.random() - 0.5) * 10,
+      ty: to.y + (Math.random() - 0.5) * 10,
+      start: now + i * 70,
+      duration: 480 + Math.random() * 220,
+      size: to.size,
+    });
+  }
+}
+
+function coinsDisplayHtml() {
+  return '<img src="coin.png" alt="" class="coin-icon" /><span>' + walletCoins.toLocaleString() + "</span>";
+}
+
+function renderWallet() {
+  const el = document.getElementById("play-coins");
+  if (el) el.innerHTML = coinsDisplayHtml();
+  renderHearts();
+}
+
 // ---- Hearts (lives) -------------------------------------------------------
-// You start with MAX_HEARTS. Running out of time on a level costs one heart.
+// You start with MAX_HEARTS. Running out of moves on a level costs one heart.
 // Hearts refill one at a time, HEART_REGEN_MS apart, even while the page is
 // closed (we persist the count and a timestamp). At 0 hearts you can't play
 // until one regenerates.
@@ -591,18 +1116,26 @@ function newGame() {
   board = new Board(WIDTH, HEIGHT, COLOR_COUNT, seed);
   selX = selY = -1;
   score = 0;
-  timeLeft = levelSeconds;
+  movesLeft = levelMoves;
   gameOver = false;
   won = false;
   resolving = false;
   particles = [];
   comboPopup = null;
+  comboBonusUntil = 0;
+  comboBonusPct = 0;
+  autoFinishing = false;
+  levelGoalCelebrated = false;
+  passCelebrationPending = false;
+  flyingWalletCoins = [];
+  passLevelPopup = null;
   lastActivity = performance.now();
   hint = null;
+  updateComboBonusHud(performance.now());
   scoreEl.textContent = score;
   goalEl.textContent = levelTarget;
   levelEl.textContent = currentLevel;
-  timeEl.textContent = Math.ceil(timeLeft);
+  movesEl.textContent = movesLeft;
   fxCtx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
   overlay.classList.remove("show");
   render();
@@ -725,10 +1258,10 @@ const easeOutBack = (t) => {
 
 // A damped squash-and-stretch wobble played on cells right after they land,
 // so every move/drop ends with a little jiggle. cells: [{x,y}].
-function animateJiggle(cells) {
+function animateJiggle(cells, speed = 1) {
   if (cells.length === 0) return Promise.resolve();
   const set = new Set(cells.map((c) => c.x + "," + c.y));
-  return animate(260, (t) => {
+  return animate(Math.max(40, Math.round(260 * speed)), (t) => {
     const wob = Math.sin(t * Math.PI * 3) * (1 - t) * 0.24; // decays to 0
     clear();
     for (let x = 0; x < WIDTH; x++)
@@ -766,16 +1299,152 @@ function spawnSparkles(matched) {
   }
 }
 
-const COMBO_WORDS = ["", "", "Double", "Triple", "Quadruple", "Quintuple", "Sextuple", "Septuple", "Octuple"];
+// Index matches cascade combo count: 2=Double … 9=Nonuple.
+const COMBO_TIERS = [
+  null, null,
+  { label: "Double", file: "Double.png" },
+  { label: "Triple", file: "Triple.png" },
+  { label: "Quadruple", file: "Quadruple.png" },
+  { label: "Quintuple", file: "Quintuple.png" },
+  { label: "Sixfold", file: "Sixfold.png" },
+  { label: "Sevenfold", file: "Sevenfold.png" },
+  { label: "Octuple", file: "Octuple.png" },
+  { label: "Nonuple", file: "Nonuple.png" },
+];
 const COMBO_IMAGES = {};
-["Double", "Triple", "Quadruple"].forEach((name, i) => {
+COMBO_TIERS.forEach((tier, i) => {
+  if (!tier) return;
   const img = new Image();
-  img.src = name + ".png";
-  COMBO_IMAGES[i + 2] = img;
+  img.src = tier.file;
+  COMBO_IMAGES[i] = img;
 });
 
-const comboWord = (n) => COMBO_WORDS[n] || (n + "× COMBO");
-function showCombo(n) { comboPopup = { combo: n, text: comboWord(n), start: performance.now() }; }
+const comboWord = (n) => (COMBO_TIERS[n] && COMBO_TIERS[n].label) || (n + "× COMBO");
+
+// Popup grows with each tier (Double smallest → Nonuple largest; 10+ keeps scaling).
+function comboPopupMetrics(combo) {
+  const tier = Math.max(2, combo);
+  return {
+    height: 64 + (tier - 2) * 14,
+    scaleMul: 1.45 + (tier - 2) * 0.11,
+    fontSize: 44 + (tier - 2) * 8,
+  };
+}
+
+function showCombo(n) {
+  comboPopup = { combo: n, text: comboWord(n), start: performance.now() };
+}
+
+const PASS_LEVEL_FILES = [
+  "images/passingLevel/GoodJob.png",
+  "images/passingLevel/YouDidIt.png",
+  "images/passingLevel/Awesome.png",
+];
+const PASS_LEVEL_IMAGES = PASS_LEVEL_FILES.map((src) => {
+  const im = new Image();
+  im.src = src;
+  return im;
+});
+let passLevelPopup = null;
+
+function showPassLevelCelebration() {
+  return new Promise((resolve) => {
+    passLevelPopup = {
+      img: PASS_LEVEL_IMAGES[Math.floor(Math.random() * PASS_LEVEL_IMAGES.length)],
+      start: performance.now(),
+      height: 80,
+      scaleMul: 1.55,
+      onDone: resolve,
+    };
+  });
+}
+
+// Draw a centered popup image (combo / pass-level) on the fx canvas.
+function drawCenterPopup(now, popup, grow, hold, fade) {
+  const total = grow + hold + fade;
+  const t = (now - popup.start) / 1000;
+  let scale, alpha;
+  if (t < grow) {
+    const p = t / grow;
+    scale = 0.35 + 0.65 * easeOutBack(p);
+    alpha = Math.min(1, p * 1.8);
+  } else if (t < grow + hold) {
+    scale = 1; alpha = 1;
+  } else if (t < total) {
+    const f = (t - grow - hold) / fade;
+    scale = 1 + 0.22 * f;
+    alpha = 1 - f;
+  } else {
+    return false;
+  }
+  const s = scale * popup.scaleMul;
+  fxCtx.save();
+  fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) / 2);
+  const glowR = (80 + popup.height * 0.55) * s;
+  const bloom = fxCtx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+  bloom.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.10) + ")");
+  bloom.addColorStop(0.45, "rgba(150, 190, 255, " + (alpha * 0.05) + ")");
+  bloom.addColorStop(1, "rgba(150, 190, 255, 0)");
+  fxCtx.fillStyle = bloom;
+  fxCtx.beginPath();
+  fxCtx.arc(0, 0, glowR, 0, Math.PI * 2);
+  fxCtx.fill();
+  fxCtx.globalAlpha = alpha;
+  fxCtx.scale(s, s);
+  const targetImg = popup.img || COMBO_IMAGES[popup.combo];
+  if (targetImg && targetImg.complete && targetImg.naturalWidth > 0) {
+    const h = popup.height;
+    const w = targetImg.naturalWidth * (h / targetImg.naturalHeight);
+    fxCtx.drawImage(targetImg, -w / 2, -h / 2, w, h);
+  } else if (popup.text) {
+    const fs = popup.fontSize || 44;
+    fxCtx.textAlign = "center";
+    fxCtx.textBaseline = "middle";
+    fxCtx.font = "bold " + fs + "px -apple-system, system-ui, sans-serif";
+    fxCtx.lineWidth = Math.max(4, Math.round(fs * 0.12));
+    fxCtx.strokeStyle = "rgba(0,0,0,0.6)";
+    fxCtx.strokeText(popup.text, 0, 0);
+    fxCtx.fillStyle = "#ffe14d";
+    fxCtx.fillText(popup.text, 0, 0);
+  }
+  fxCtx.restore();
+  return true;
+}
+
+// Double starts the 3s window (+20%). Each higher chain step upgrades the rate and
+// refreshes the timer: Triple +30%, Quadruple +40%, +10% per step.
+function comboTierBonusRate(combo) {
+  return combo >= 2 ? combo * 0.10 : 0;
+}
+
+function refreshComboBonusWindow(combo, now) {
+  if (combo < 2) return;
+  comboBonusPct = Math.max(comboBonusPct, comboTierBonusRate(combo));
+  comboBonusUntil = now + COMBO_BONUS_MS;
+}
+
+function awardCascadeScore(tileCount, cascadeCombo) {
+  const base = tileCount * 10;
+  if (cascadeCombo < 2) return base;
+  refreshComboBonusWindow(cascadeCombo, performance.now());
+  return Math.round(base * (1 + comboBonusPct));
+}
+
+const comboBonusEl = document.getElementById("combo-bonus");
+const comboBonusLabel = document.getElementById("combo-bonus-label");
+const comboBonusFill = document.getElementById("combo-bonus-fill");
+
+function updateComboBonusHud(now) {
+  if (now < comboBonusUntil && comboBonusPct > 0) {
+    comboBonusEl.classList.add("active");
+    comboBonusLabel.textContent = "Combo bonus +" + Math.round(comboBonusPct * 100) + "%";
+    comboBonusFill.style.transform = "scaleX(" + ((comboBonusUntil - now) / COMBO_BONUS_MS) + ")";
+  } else {
+    comboBonusEl.classList.remove("active");
+    comboBonusPct = 0;
+    comboBonusUntil = 0;
+  }
+}
 
 // Advance + draw sparkles and the combo popup. Driven by the main rAF loop.
 function updateFx(now, dt) {
@@ -801,69 +1470,22 @@ function updateFx(now, dt) {
   fxCtx.shadowBlur = 0;
   fxCtx.globalAlpha = 1;
 
-  // Combo popup: the image starts small, springs up to full size in the
-  // center, holds briefly, then drifts a touch larger as it fades away.
-  if (comboPopup) {
-    const GROW = 0.26, HOLD = 0.4, FADE = 0.34;
-    const total = GROW + HOLD + FADE;
-    const t = (now - comboPopup.start) / 1000;
-    let scale, alpha;
-    if (t < GROW) {
-      const p = t / GROW;
-      scale = 0.35 + 0.65 * easeOutBack(p); // small → full with a soft pop
-      alpha = Math.min(1, p * 1.8);
-    } else if (t < GROW + HOLD) {
-      scale = 1; alpha = 1;
-    } else if (t < total) {
-      const f = (t - GROW - HOLD) / FADE;
-      scale = 1 + 0.22 * f;                 // drift slightly larger while leaving
-      alpha = 1 - f;
-    } else {
-      comboPopup = null;
+  if (passLevelPopup) {
+    const metrics = comboPopupMetrics(2);
+    passLevelPopup.height = metrics.height;
+    passLevelPopup.scaleMul = metrics.scaleMul;
+    if (!drawCenterPopup(now, passLevelPopup, 0.26, 2.0, 0.2)) {
+      const done = passLevelPopup.onDone;
+      passLevelPopup = null;
+      if (done) done();
     }
-
-    if (comboPopup) {
-      let imgScale = 1.5; // 50% bigger by default (Double)
-      if (comboPopup.combo === 3) imgScale = 1.6; // 60% bigger
-      else if (comboPopup.combo >= 4) imgScale = 1.8; // 80% bigger
-      const s = scale * imgScale;
-
-      fxCtx.save();
-      fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) / 2);
-
-      // Modern, understated backdrop: a soft cool bloom that scales and fades
-      // with the image. No spinning starbursts or strobing sparks.
-      const glowR = 150 * s;
-      const bloom = fxCtx.createRadialGradient(0, 0, 0, 0, 0, glowR);
-      bloom.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.10) + ")");
-      bloom.addColorStop(0.45, "rgba(150, 190, 255, " + (alpha * 0.05) + ")");
-      bloom.addColorStop(1, "rgba(150, 190, 255, 0)");
-      fxCtx.fillStyle = bloom;
-      fxCtx.beginPath();
-      fxCtx.arc(0, 0, glowR, 0, Math.PI * 2);
-      fxCtx.fill();
-
-      fxCtx.globalAlpha = alpha;
-      fxCtx.scale(s, s);
-
-      const targetImg = COMBO_IMAGES[comboPopup.combo] || COMBO_IMAGES[4];
-      if (targetImg && targetImg.complete && targetImg.naturalWidth > 0) {
-        // Image height matches approx the text original height
-        const h = 80;
-        const w = targetImg.naturalWidth * (h / targetImg.naturalHeight);
-        fxCtx.drawImage(targetImg, -w/2, -h/2, w, h);
-      } else {
-        fxCtx.textAlign = "center";
-        fxCtx.textBaseline = "middle";
-        fxCtx.font = "bold 60px -apple-system, system-ui, sans-serif";
-        fxCtx.lineWidth = 7;
-        fxCtx.strokeStyle = "rgba(0,0,0,0.6)";
-        fxCtx.strokeText(comboPopup.text, 0, 0);
-        fxCtx.fillStyle = "#ffe14d";
-        fxCtx.fillText(comboPopup.text, 0, 0);
-      }
-      fxCtx.restore();
-    }
+  } else if (comboPopup) {
+    const metrics = comboPopupMetrics(comboPopup.combo);
+    comboPopup.height = metrics.height;
+    comboPopup.scaleMul = metrics.scaleMul;
+    comboPopup.text = comboPopup.text || comboWord(comboPopup.combo);
+    comboPopup.fontSize = metrics.fontSize;
+    if (!drawCenterPopup(now, comboPopup, 0.26, 0.4, 0.34)) comboPopup = null;
   }
 }
 
@@ -887,10 +1509,10 @@ function animateShake(ax, ay, bx, by) {
 
 // Valid swap: the two candies slide into each other's cell. Grid is already
 // swapped, so each target cell's candy is tweened in from the other position.
-function animateSwap(ax, ay, bx, by) {
+function animateSwap(ax, ay, bx, by, speed = 1) {
   const ca = board.get(ax, ay), cb = board.get(bx, by);
   const targets = new Set([ax + "," + ay, bx + "," + by]);
-  return animate(140, (t) => {
+  return animate(Math.max(40, Math.round(140 * speed)), (t) => {
     clear();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
@@ -904,8 +1526,8 @@ function animateSwap(ax, ay, bx, by) {
 }
 
 // Matched candies shrink and fade out before being cleared.
-function animateClear(matched) {
-  return animate(170, (t) => {
+function animateClear(matched, speed = 1) {
+  return animate(Math.max(40, Math.round(170 * speed)), (t) => {
     clear();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
@@ -919,8 +1541,8 @@ function animateClear(matched) {
 
 // Soft light under combo'ed objects: a single smooth fade in then out (no
 // strobing on/off) at a gentle, low opacity.
-function animateComboPulse(matched) {
-  return animate(650, (t) => {
+function animateComboPulse(matched, speed = 1) {
+  return animate(Math.max(40, Math.round(650 * speed)), (t) => {
     const glow = Math.sin(t * Math.PI); // 0 → 1 → 0, one smooth rise and fall
     clear();
 
@@ -955,12 +1577,12 @@ function animateComboPulse(matched) {
 }
 
 // Candies above cleared gaps fall down, and fresh candies drop in from the top.
-function animateFall(moves, spawns) {
+function animateFall(moves, spawns, speed = 1) {
   const items = [];
   for (const m of moves) items.push({ x: m.x, fromY: m.fromY, toY: m.toY, color: m.color });
   for (const s of spawns) items.push({ x: s.x, fromY: s.startY, toY: s.y, color: s.color });
   const targets = new Set(items.map((i) => i.x + "," + i.toY));
-  return animate(230, (t) => {
+  return animate(Math.max(40, Math.round(230 * speed)), (t) => {
     clear();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
@@ -973,40 +1595,119 @@ function animateFall(moves, spawns) {
   }, easeIn);
 }
 
-async function resolveCascades() {
+async function resolveCascades(fast) {
+  const spd = fast ? 0.48 : 1;
   resolving = true;
   let combo = 0;
   while (true) {
     const matched = findMatches(board.grid, WIDTH, HEIGHT);
     if (matched.size === 0) break;
     combo++;
-    score += matched.size * 10;
+    updateLastMatchCenter(matched);
+    score += awardCascadeScore(matched.size, combo);
     scoreEl.textContent = score;
 
     spawnSparkles(matched);          // spark on every cleared match
     if (combo >= 2) {
       showCombo(combo); // Double, Triple, ... for chained combos
-      await animateComboPulse(matched);
+      await animateComboPulse(matched, spd);
     }
 
-    await animateClear(matched);
+    await animateClear(matched, spd);
     board.clearMatches(matched);
     const moves = board.applyGravityMapped();
     const spawns = board.refillMapped();
-    await animateFall(moves, spawns);
+    await animateFall(moves, spawns, spd);
 
     // Jiggle every candy that just landed (moved or dropped in).
     const landed = [
       ...moves.map((m) => ({ x: m.x, y: m.toY })),
       ...spawns.map((s) => ({ x: s.x, y: s.y })),
     ];
-    await animateJiggle(landed);
+    await animateJiggle(landed, spd);
   }
 
   render();
   if (!board.hasValidMove()) { board.reshuffle(); render(); }
   resolving = false;
   lastActivity = performance.now(); // start the idle countdown after a settle
+  checkLevelEnd();
+}
+
+const AUTO_MOVE_SPEED = 0.48;
+const AUTO_MOVE_GAP_MS = 90;
+
+function autoMoveDelay() {
+  return new Promise((resolve) => setTimeout(resolve, AUTO_MOVE_GAP_MS));
+}
+
+// Goal reached: show passing-level art, then auto-play leftover moves / win UI.
+async function passLevelSequence() {
+  passCelebrationPending = true;
+  await showPassLevelCelebration();
+  passCelebrationPending = false;
+  if (gameOver) return;
+  if (movesLeft > 0) await autoFinishRemainingMoves();
+  else winLevel();
+}
+
+// After the goal is met, burn leftover moves on-screen (fast) before the win UI.
+async function autoFinishRemainingMoves() {
+  if (autoFinishing || gameOver) return;
+  autoFinishing = true;
+  hint = null;
+  const autoCoinPerMove = autoMoveCoinBonus(currentLevel);
+
+  while (movesLeft > 0 && score >= levelTarget && !gameOver) {
+    let cells = board.findHint();
+    if (!cells) {
+      board.reshuffle();
+      render();
+      await autoMoveDelay();
+      cells = board.findHint();
+      if (!cells) break;
+    }
+    const ax = cells[0].x, ay = cells[0].y, bx = cells[1].x, by = cells[1].y;
+    if (!board.trySwap(ax, ay, bx, by)) break;
+
+    movesLeft--;
+    movesEl.textContent = movesLeft;
+    resolving = true;
+    await animateSwap(ax, ay, bx, by, AUTO_MOVE_SPEED);
+    await resolveCascades(true);
+    addCoins(autoCoinPerMove);
+    await autoMoveDelay();
+  }
+
+  autoFinishing = false;
+  if (!gameOver && score >= levelTarget) winLevel();
+}
+
+// Win or lose once a cascade settles (and from tick when idle).
+function checkLevelEnd() {
+  if (gameOver || resolving || passCelebrationPending) return;
+  if (score >= levelTarget) {
+    if (autoFinishing) return;
+    if (!levelGoalCelebrated) {
+      levelGoalCelebrated = true;
+      passLevelSequence();
+    }
+    return;
+  }
+  if (movesLeft <= 0) failOutOfMoves();
+}
+
+function failOutOfMoves() {
+  clearCoinRain();
+  gameOver = true;
+  won = false;
+  loseHeart();
+  renderHearts();
+  ovBig.textContent = "Out of moves!  " + score + " / " + levelTarget;
+  ovSub.textContent = hearts > 0
+    ? "Lost a life — tap to retry"
+    : "Out of lives — tap for the menu (refills in " + fmtTime(msToNextHeart()) + ")";
+  overlay.classList.add("show");
 }
 
 function pixelToCell(clientX, clientY) {
@@ -1069,26 +1770,9 @@ function renderDrag() {
   drawCell(dragFromX, dragFromY, board.get(dragFromX, dragFromY), 1.12, 1, dxp, dyp);
 }
 
-canvas.addEventListener("mousedown", (e) => {
-  if (gameOver) return; // the end-of-round overlay handles advancing/retrying
-  if (resolving) return;
-  const cell = pixelToCell(e.clientX, e.clientY);
-  if (!cell) return;
-  noteActivity();
-  dragging = true;
-  dragFromX = cell.gx; dragFromY = cell.gy;
-  dragStart = localPos(e); dragCur = { ...dragStart };
-  renderDrag();
-});
-
-window.addEventListener("mousemove", (e) => {
-  if (!dragging) return;
-  lastActivity = performance.now();
-  dragCur = localPos(e);
-  renderDrag();
-});
-
-window.addEventListener("mouseup", () => {
+// Pointer events (mouse + touch + pen). touch-action:none on #game stops scroll
+// from stealing drags on mobile.
+function finishDrag() {
   if (!dragging) return;
   noteActivity();
   dragging = false;
@@ -1100,12 +1784,53 @@ window.addEventListener("mouseup", () => {
   const tx = fromX + dir.dx, ty = fromY + dir.dy;
   if (tx < 0 || tx >= WIDTH || ty < 0 || ty >= HEIGHT) { render(); return; }
 
-  resolving = true; // block input through the whole swap/animation sequence
+  if (movesLeft <= 0) { render(); return; }
+
+  resolving = true;
   if (board.trySwap(fromX, fromY, tx, ty)) {
+    movesLeft--;
+    movesEl.textContent = movesLeft;
     animateSwap(fromX, fromY, tx, ty).then(resolveCascades);
   } else {
     animateShake(fromX, fromY, tx, ty).then(() => { resolving = false; render(); });
   }
+}
+
+canvas.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 && e.pointerType === "mouse") return;
+  if (gameOver || resolving || autoFinishing || passCelebrationPending || movesLeft <= 0) return;
+  const cell = pixelToCell(e.clientX, e.clientY);
+  if (!cell) return;
+  e.preventDefault();
+  canvas.setPointerCapture(e.pointerId);
+  noteActivity();
+  dragging = true;
+  dragFromX = cell.gx; dragFromY = cell.gy;
+  dragStart = localPos(e); dragCur = { ...dragStart };
+  renderDrag();
+});
+
+canvas.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  e.preventDefault();
+  lastActivity = performance.now();
+  dragCur = localPos(e);
+  renderDrag();
+});
+
+canvas.addEventListener("pointerup", (e) => {
+  if (!dragging) return;
+  e.preventDefault();
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  finishDrag();
+});
+
+canvas.addEventListener("pointercancel", (e) => {
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  if (!dragging) return;
+  dragging = false;
+  dragFromX = dragFromY = -1;
+  render();
 });
 
 window.addEventListener("keydown", (e) => {
@@ -1120,36 +1845,19 @@ function tick(ts) {
   const dt = (ts - lastTs) / 1000;
   lastTs = ts;
 
+  updateCoinRain(dt);
+  updateLevelPassIdle(ts);
+
   if (!inLevel) { requestAnimationFrame(tick); return; } // idle on the menu/splash
 
+  updateComboBonusHud(ts);
   updateFx(ts, dt);
 
-  if (!gameOver) {
-    // Win the moment the goal is reached — but let any in-flight cascade settle
-    // first so its points are all counted before the overlay pops.
-    if (score >= levelTarget && !resolving) {
-      winLevel();
-    } else {
-      timeLeft -= dt;
-      if (timeLeft <= 0) {
-        timeLeft = 0;
-        gameOver = true;
-        won = false;
-        loseHeart();                 // running out of time costs a life
-        renderHearts();
-        ovBig.textContent = "Time's up!  " + score + " / " + levelTarget;
-        ovSub.textContent = hearts > 0
-          ? "Lost a life — click to retry"
-          : "Out of lives — click for the menu (refills in " + fmtTime(msToNextHeart()) + ")";
-        overlay.classList.add("show");
-      }
-      timeEl.textContent = Math.ceil(timeLeft);
-    }
-  }
+  if (!gameOver && !resolving && !passCelebrationPending) checkLevelEnd();
 
   // Idle hint: after HINT_IDLE_MS with no input, pulse a valid move. While idle
   // the board is otherwise static, so the hint owns the per-frame redraw here.
-  if (hintsEnabled && !gameOver && !resolving && !dragging) {
+  if (hintsEnabled && !gameOver && !resolving && !autoFinishing && !passCelebrationPending && !dragging) {
     if (!hint && ts - lastActivity > HINT_IDLE_MS) {
       const cells = board.findHint();
       if (cells) hint = { cells, start: ts };
@@ -1170,26 +1878,103 @@ function tick(ts) {
 
 // Goal reached: lock the round, unlock the next level (and persist it).
 function winLevel() {
+  if (gameOver) return;
+  autoFinishing = false;
   gameOver = true;
   won = true;
   hint = null;
+  addCoins(levelCoinReward(currentLevel));
   if (currentLevel === unlockedLevel && unlockedLevel < MAX_LEVEL) {
     unlockedLevel++;
     saveUnlocked();
   }
-  if (currentLevel < MAX_LEVEL) {
-    ovBig.textContent = "Level " + currentLevel + " cleared!";
-    ovSub.textContent = "Click for level " + (currentLevel + 1);
-  } else {
-    ovBig.textContent = "You beat all " + MAX_LEVEL + " levels!";
-    ovSub.textContent = "Click to return to the menu";
-  }
-  overlay.classList.add("show");
+  showLevelPass();
+  spawnCoinRain();
 }
+
+const winDim = document.getElementById("win-dim");
+const levelPass = document.getElementById("level-pass");
+const levelPassPanel = document.querySelector("#level-pass .level-pass-panel");
+const btnNextLevel = document.getElementById("btn-next-level");
+const btnBackMenu = document.getElementById("btn-back-menu");
+let levelPassIdleAt = 0;
+let levelPassPulseEnd = 0;
+
+function showLevelPass() {
+  btnNextLevel.style.display = currentLevel < MAX_LEVEL ? "" : "none";
+  btnNextLevel.classList.remove("pulsing");
+  levelPassPulseEnd = 0;
+  levelPassIdleAt = performance.now();
+  levelPass.classList.remove("enter-in");
+  winDim.classList.add("show");
+  levelPass.classList.add("show");
+  void levelPassPanel.offsetWidth;
+  levelPass.classList.add("enter-in");
+}
+
+function hideLevelPass() {
+  winDim.classList.remove("show");
+  levelPass.classList.remove("show", "enter-in");
+  btnNextLevel.classList.remove("pulsing");
+  levelPassPulseEnd = 0;
+}
+
+function noteLevelPassActivity() {
+  levelPassIdleAt = performance.now();
+  btnNextLevel.classList.remove("pulsing");
+  levelPassPulseEnd = 0;
+}
+
+function updateLevelPassIdle(now) {
+  if (!levelPass.classList.contains("show")) return;
+  if (btnNextLevel.style.display === "none") return;
+  if (levelPassPulseEnd > 0) {
+    if (now >= levelPassPulseEnd) {
+      btnNextLevel.classList.remove("pulsing");
+      levelPassPulseEnd = 0;
+      levelPassIdleAt = now;
+    }
+    return;
+  }
+  if (now - levelPassIdleAt >= 3000) {
+    btnNextLevel.classList.add("pulsing");
+    levelPassPulseEnd = now + 3000;
+  }
+}
+
+levelPass.addEventListener("pointerdown", noteLevelPassActivity);
+btnNextLevel.addEventListener("click", () => {
+  hideLevelPass();
+  if (currentLevel < MAX_LEVEL) startLevel(currentLevel + 1);
+  else returnToMenu();
+});
+btnBackMenu.addEventListener("click", () => {
+  hideLevelPass();
+  returnToMenu();
+});
 
 const splash = document.getElementById("splash");
 const splashLogo = document.getElementById("splash-logo");
 const splashLoader = document.getElementById("splash-loader");
+const SPLASH_ASSETS = {
+  logo: { desktop: "logobg.png", mobile: "mobileLogobg.png" },
+  loader: { desktop: "loader.png", mobile: "MobileLoader.png" },
+};
+const mobileSplashMq = window.matchMedia("(max-width: 768px)");
+
+function isMobileSplash() {
+  return mobileSplashMq.matches;
+}
+
+function applySplashAssets() {
+  const mobile = isMobileSplash();
+  splashLogo.src = mobile ? SPLASH_ASSETS.logo.mobile : SPLASH_ASSETS.logo.desktop;
+  splashLoader.src = mobile ? SPLASH_ASSETS.loader.mobile : SPLASH_ASSETS.loader.desktop;
+}
+
+applySplashAssets();
+mobileSplashMq.addEventListener("change", applySplashAssets);
+const menuShell = document.getElementById("menu-shell");
 const levelMenu = document.getElementById("level-menu");
 const gameUi = document.getElementById("game-ui");
 const levelButtons = Array.from(document.querySelectorAll(".level-btn"));
@@ -1207,9 +1992,14 @@ function heartsHtml() {
 // Update the menu bar (with a regen countdown) and the in-game HUD lives.
 function renderHearts() {
   const html = heartsHtml();
-  heartsBar.innerHTML = html +
-    (hearts < MAX_HEARTS ? '<span class="regen">next in ' + fmtTime(msToNextHeart()) + "</span>" : "");
+  const regen = hearts < MAX_HEARTS
+    ? '<span class="regen">next in ' + fmtTime(msToNextHeart()) + "</span>"
+    : "";
+  heartsBar.innerHTML = html + regen +
+    '<span class="menu-coins">' + coinsDisplayHtml() + "</span>";
   playHearts.innerHTML = html;
+  const playCoins = document.getElementById("play-coins");
+  if (playCoins) playCoins.innerHTML = coinsDisplayHtml();
 }
 
 // Paint the menu so levels up to `unlockedLevel` are playable and the rest read
@@ -1226,6 +2016,9 @@ function refreshMenu() {
 // Begin (or restart) a level: difficulty, grid size, fresh seed, board. Costs
 // nothing up front — but with no lives left you can't play, so bounce to menu.
 function startLevel(level) {
+  autoFinishing = false;
+  hideLevelPass();
+  clearCoinRain();
   regenHearts();
   if (hearts <= 0) { returnToMenu(); return; }
 
@@ -1233,11 +2026,12 @@ function startLevel(level) {
   currentLevel = level;
   WIDTH = HEIGHT = cfg.grid;   // the board grows with the level
   resizeBoard();
-  levelSeconds = cfg.seconds;
   levelTarget = cfg.target;
+  levelMoves = cfg.moves;
   hintsEnabled = cfg.hints;
   seed = (seed * 1664525 + 1013904223) >>> 0;
 
+  menuShell.classList.remove("show");
   levelMenu.style.display = "none";
   gameUi.style.display = "flex";
   inLevel = true;
@@ -1245,10 +2039,13 @@ function startLevel(level) {
 }
 
 function returnToMenu() {
+  hideLevelPass();
+  clearCoinRain();
   inLevel = false;
   gameOver = false;
   gameUi.style.display = "none";
   refreshMenu();
+  menuShell.classList.add("show");
   levelMenu.style.display = "grid";
 }
 
@@ -1262,21 +2059,20 @@ levelButtons.forEach((btn, i) => {
 
 menuBtn.addEventListener("click", returnToMenu);
 
-// Clicking the end-of-round overlay advances on a win (or returns to the menu
-// after the last level) and retries on a loss.
-overlay.addEventListener("click", () => {
-  if (!gameOver) return;
-  if (won) {
-    if (currentLevel < MAX_LEVEL) startLevel(currentLevel + 1);
-    else returnToMenu();
-  } else {
-    startLevel(currentLevel);
-  }
+// Loss overlay only — wins use the level-pass buttons.
+function onOverlayTap() {
+  if (!gameOver || won) return;
+  startLevel(currentLevel);
+}
+overlay.addEventListener("pointerup", (e) => {
+  if (e.button !== 0 && e.pointerType === "mouse") return;
+  onOverlayTap();
 });
 
 // Lives persist across sessions and refill in real time; tick the regen + UI
 // once a second so the menu countdown stays live and hearts reappear on time.
 loadHearts();
+loadCoins();
 regenHearts();
 renderHearts();
 setInterval(() => { regenHearts(); renderHearts(); }, 1000);
@@ -1290,6 +2086,7 @@ setTimeout(() => {
   setTimeout(() => {
     splash.style.display = "none";
     refreshMenu();
+    menuShell.classList.add("show");
     levelMenu.style.display = "grid";
   }, 2000);
 }, 3000);
