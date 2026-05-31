@@ -43,22 +43,148 @@
   #overlay .big { font-size: 38px; font-weight: 700; }
   #overlay .sub { font-size: 18px; color: #c5c5d6; margin-top: 10px; }
   #hint { margin-top: 14px; color: #8a8a9c; font-size: 13px; }
+
+  #splash {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: #1e1e26;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #splash img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+  #splash img.active {
+    display: block;
+  }
+
+  #game-ui {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  #level-menu {
+    display: none;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    background: #2a2a36;
+    padding: 32px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .level-btn {
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1e1e26;
+    border-radius: 12px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #555;
+    cursor: not-allowed;
+    user-select: none;
+  }
+  .level-btn.active {
+    background: #e84d57;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(232, 77, 87, 0.4);
+    transition: transform 0.1s, background 0.1s;
+  }
+  .level-btn.active:hover {
+    background: #ff6670;
+    transform: scale(1.05);
+  }
+  .level-btn.active:active {
+    transform: scale(0.95);
+  }
+
+  /* Lives shown above the level grid (spans all 5 columns) and in the HUD. */
+  #hearts-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 26px;
+  }
+  #hearts-bar .regen { font-size: 13px; color: #9a9aae; font-variant-numeric: tabular-nums; }
+  .heart-full { color: #e84d57; }
+  .heart-empty { color: #4a4a58; }
+
+  #menu-btn {
+    margin-top: 14px;
+    padding: 8px 18px;
+    background: #2a2a36;
+    color: #c5c5d6;
+    border: 1px solid #3a3a48;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #menu-btn:hover { background: #353543; color: #fff; }
 </style>
 </head>
 <body>
-  <div id="hud">
-    <div><div class="label">Score</div><div class="val" id="score">0</div></div>
-    <div><div class="label">Time</div><div class="val" id="time">90</div></div>
+  <div id="splash">
+    <img id="splash-logo" src="logobg.png" class="active" />
+    <img id="splash-loader" src="loader.png" />
   </div>
-  <div id="wrap">
-    <canvas id="game"></canvas>
-    <canvas id="fx"></canvas>
-    <div id="overlay">
-      <div class="big" id="ovBig">TIME!</div>
-      <div class="sub" id="ovSub">Press R or click to play again</div>
+
+  <div id="level-menu">
+    <div id="hearts-bar"></div>
+    <div class="level-btn active" id="btn-level-1">1</div>
+    <div class="level-btn locked">2</div>
+    <div class="level-btn locked">3</div>
+    <div class="level-btn locked">4</div>
+    <div class="level-btn locked">5</div>
+    <div class="level-btn locked">6</div>
+    <div class="level-btn locked">7</div>
+    <div class="level-btn locked">8</div>
+    <div class="level-btn locked">9</div>
+    <div class="level-btn locked">10</div>
+    <div class="level-btn locked">11</div>
+    <div class="level-btn locked">12</div>
+    <div class="level-btn locked">13</div>
+    <div class="level-btn locked">14</div>
+    <div class="level-btn locked">15</div>
+    <div class="level-btn locked">16</div>
+    <div class="level-btn locked">17</div>
+    <div class="level-btn locked">18</div>
+    <div class="level-btn locked">19</div>
+    <div class="level-btn locked">20</div>
+  </div>
+
+  <div id="game-ui">
+    <div id="hud">
+      <div><div class="label">Level</div><div class="val" id="level">1</div></div>
+      <div><div class="label">Score</div><div class="val" id="score">0</div></div>
+      <div><div class="label">Goal</div><div class="val" id="goal">0</div></div>
+      <div><div class="label">Time</div><div class="val" id="time">90</div></div>
+      <div><div class="label">Lives</div><div class="val" id="play-hearts"></div></div>
     </div>
+    <div id="wrap">
+      <canvas id="game"></canvas>
+      <canvas id="fx"></canvas>
+      <div id="overlay">
+        <div class="big" id="ovBig">TIME!</div>
+        <div class="sub" id="ovSub">Press R or click to play again</div>
+      </div>
+    </div>
+    <div id="hint">Drag a candy onto a neighbor to swap. Match 3+ in a row or column.</div>
+    <button id="menu-btn">☰ Menu</button>
   </div>
-  <div id="hint">Drag a candy onto a neighbor to swap. Match 3+ in a row or column.</div>
 
 <script>
 "use strict";
@@ -297,7 +423,10 @@ class Board {
 // Rendering + input — the only part that touches the DOM/canvas.
 // ============================================================================
 
-const WIDTH = 8, HEIGHT = 8, COLOR_COUNT = 5;
+// WIDTH/HEIGHT are mutable: the grid grows with the level (see levelConfig).
+// COLOR_COUNT stays 5 so every color/sprite is always in play.
+let WIDTH = 8, HEIGHT = 8;
+const COLOR_COUNT = 5;
 const MATCH_SECONDS = 90;
 const CELL = 56;
 const GAP = 4;
@@ -324,22 +453,31 @@ const IMAGES = IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const DPR = Math.max(2, window.devicePixelRatio || 1); // multiply resolution for sharpness
-canvas.width = WIDTH * CELL * DPR;
-canvas.height = HEIGHT * CELL * DPR;
-ctx.scale(DPR, DPR);
 
 // Separate overlay canvas for sparkles + combo text, so it can animate freely
 // on top of the board without being wiped by the board's per-frame redraws.
 const fx = document.getElementById("fx");
 const fxCtx = fx.getContext("2d");
-fx.width = WIDTH * CELL * DPR;
-fx.height = HEIGHT * CELL * DPR;
-fxCtx.scale(DPR, DPR);
+
+// Size both canvases to the current grid. Setting canvas.width resets the 2D
+// transform, so the DPR scale is (re)applied here — call after WIDTH/HEIGHT change.
+function resizeBoard() {
+  canvas.width = WIDTH * CELL * DPR;
+  canvas.height = HEIGHT * CELL * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  fx.width = WIDTH * CELL * DPR;
+  fx.height = HEIGHT * CELL * DPR;
+  fxCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resizeBoard();
 
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
+const levelEl = document.getElementById("level");
+const goalEl = document.getElementById("goal");
 const overlay = document.getElementById("overlay");
 const ovBig = document.getElementById("ovBig");
+const ovSub = document.getElementById("ovSub");
 
 let board, selX = -1, selY = -1, score = 0, timeLeft = MATCH_SECONDS;
 let gameOver = false, resolving = false;
@@ -354,6 +492,94 @@ const HINT_IDLE_MS = 4000;   // show a hint after this long with no input
 const HINT_DURATION_MS = 2000; // how long the hint pulses before clearing
 const HINT_PULSES = 2;       // grow/shrink cycles packed into the duration
 
+// ---- Levels ---------------------------------------------------------------
+// All 5 colors are always present; difficulty rises on these tunable dials:
+//   grid    — the board grows from 6x6 up to 12x12. A bigger board is harder
+//             to read and to find/line up combos on. This is the main dial.
+//   seconds — less time each level, so the goal must be hit efficiently.
+//   target  — the points needed to clear the level (the gate to advance).
+//   hints   — the idle helper turns off once it gets hard.
+const MAX_LEVEL = 20;
+function levelConfig(level) {
+  return {
+    grid: Math.min(12, 6 + Math.floor((level - 1) / 3)), // 6x6 → 12x12 over 20
+    seconds: Math.max(45, 90 - (level - 1) * 3),         // 90 down to 45
+    target: 150 + (level - 1) * 150,                     // 150 → 3000
+    hints: level <= 6,
+  };
+}
+
+let currentLevel = 1;
+let levelTarget = 0;        // points needed to clear the current level
+let levelSeconds = MATCH_SECONDS;
+let hintsEnabled = true;
+let inLevel = false;        // true only while a level is actually being played
+let won = false;            // did the last round end by reaching the target?
+
+function loadUnlocked() {
+  try {
+    const v = parseInt(localStorage.getItem("matchDuel.unlocked"), 10);
+    return Math.min(MAX_LEVEL, Math.max(1, v || 1));
+  } catch (e) { return 1; }
+}
+function saveUnlocked() {
+  try { localStorage.setItem("matchDuel.unlocked", String(unlockedLevel)); } catch (e) {}
+}
+let unlockedLevel = loadUnlocked();
+
+// ---- Hearts (lives) -------------------------------------------------------
+// You start with MAX_HEARTS. Running out of time on a level costs one heart.
+// Hearts refill one at a time, HEART_REGEN_MS apart, even while the page is
+// closed (we persist the count and a timestamp). At 0 hearts you can't play
+// until one regenerates.
+const MAX_HEARTS = 5;
+const HEART_REGEN_MS = 10 * 60 * 1000; // one heart every 10 minutes
+let hearts = MAX_HEARTS;
+let heartTimer = Date.now(); // when the current regen interval started ticking
+
+function loadHearts() {
+  try {
+    const h = parseInt(localStorage.getItem("matchDuel.hearts"), 10);
+    const t = parseInt(localStorage.getItem("matchDuel.heartTimer"), 10);
+    if (!isNaN(h)) hearts = Math.min(MAX_HEARTS, Math.max(0, h));
+    if (!isNaN(t)) heartTimer = t;
+  } catch (e) {}
+}
+function saveHearts() {
+  try {
+    localStorage.setItem("matchDuel.hearts", String(hearts));
+    localStorage.setItem("matchDuel.heartTimer", String(heartTimer));
+  } catch (e) {}
+}
+
+// Grant any hearts earned since heartTimer; advance the clock by whole intervals.
+function regenHearts() {
+  if (hearts >= MAX_HEARTS) { heartTimer = Date.now(); return; }
+  const gained = Math.floor((Date.now() - heartTimer) / HEART_REGEN_MS);
+  if (gained > 0) {
+    hearts = Math.min(MAX_HEARTS, hearts + gained);
+    heartTimer = hearts >= MAX_HEARTS ? Date.now() : heartTimer + gained * HEART_REGEN_MS;
+    saveHearts();
+  }
+}
+
+function loseHeart() {
+  if (hearts <= 0) return;
+  if (hearts === MAX_HEARTS) heartTimer = Date.now(); // start the regen clock
+  hearts--;
+  saveHearts();
+}
+
+// ms until the next heart, or 0 when full.
+function msToNextHeart() {
+  if (hearts >= MAX_HEARTS) return 0;
+  return Math.max(0, HEART_REGEN_MS - (Date.now() - heartTimer));
+}
+function fmtTime(ms) {
+  const s = Math.ceil(ms / 1000);
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
 // Record a real interaction so the idle timer restarts and any live hint stops.
 // Repaint the settled board if we interrupted a pulse, so no glow frame lingers.
 function noteActivity() {
@@ -365,13 +591,18 @@ function newGame() {
   board = new Board(WIDTH, HEIGHT, COLOR_COUNT, seed);
   selX = selY = -1;
   score = 0;
-  timeLeft = MATCH_SECONDS;
+  timeLeft = levelSeconds;
   gameOver = false;
+  won = false;
   resolving = false;
   particles = [];
   comboPopup = null;
   lastActivity = performance.now();
   hint = null;
+  scoreEl.textContent = score;
+  goalEl.textContent = levelTarget;
+  levelEl.textContent = currentLevel;
+  timeEl.textContent = Math.ceil(timeLeft);
   fxCtx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
   overlay.classList.remove("show");
   render();
@@ -536,8 +767,15 @@ function spawnSparkles(matched) {
 }
 
 const COMBO_WORDS = ["", "", "Double", "Triple", "Quadruple", "Quintuple", "Sextuple", "Septuple", "Octuple"];
+const COMBO_IMAGES = {};
+["Double", "Triple", "Quadruple"].forEach((name, i) => {
+  const img = new Image();
+  img.src = name + ".png";
+  COMBO_IMAGES[i + 2] = img;
+});
+
 const comboWord = (n) => COMBO_WORDS[n] || (n + "× COMBO");
-function showCombo(n) { comboPopup = { text: comboWord(n), start: performance.now() }; }
+function showCombo(n) { comboPopup = { combo: n, text: comboWord(n), start: performance.now() }; }
 
 // Advance + draw sparkles and the combo popup. Driven by the main rAF loop.
 function updateFx(now, dt) {
@@ -563,29 +801,67 @@ function updateFx(now, dt) {
   fxCtx.shadowBlur = 0;
   fxCtx.globalAlpha = 1;
 
-  // Combo popup: grow (small→big with overshoot) → hold 0.5s → fade 0.2s.
+  // Combo popup: the image starts small, springs up to full size in the
+  // center, holds briefly, then drifts a touch larger as it fades away.
   if (comboPopup) {
-    const GROW = 0.18, HOLD = 0.5, FADE = 0.2;
+    const GROW = 0.26, HOLD = 0.4, FADE = 0.34;
+    const total = GROW + HOLD + FADE;
     const t = (now - comboPopup.start) / 1000;
     let scale, alpha;
-    if (t < GROW) { const p = t / GROW; scale = easeOutBack(p); alpha = Math.min(1, p * 2); }
-    else if (t < GROW + HOLD) { scale = 1; alpha = 1; }
-    else if (t < GROW + HOLD + FADE) { const f = (t - GROW - HOLD) / FADE; scale = 1 + 0.3 * f; alpha = 1 - f; }
-    else { comboPopup = null; }
+    if (t < GROW) {
+      const p = t / GROW;
+      scale = 0.35 + 0.65 * easeOutBack(p); // small → full with a soft pop
+      alpha = Math.min(1, p * 1.8);
+    } else if (t < GROW + HOLD) {
+      scale = 1; alpha = 1;
+    } else if (t < total) {
+      const f = (t - GROW - HOLD) / FADE;
+      scale = 1 + 0.22 * f;                 // drift slightly larger while leaving
+      alpha = 1 - f;
+    } else {
+      comboPopup = null;
+    }
 
     if (comboPopup) {
+      let imgScale = 1.5; // 50% bigger by default (Double)
+      if (comboPopup.combo === 3) imgScale = 1.6; // 60% bigger
+      else if (comboPopup.combo >= 4) imgScale = 1.8; // 80% bigger
+      const s = scale * imgScale;
+
       fxCtx.save();
-      fxCtx.globalAlpha = alpha;
       fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) / 2);
-      fxCtx.scale(scale, scale);
-      fxCtx.textAlign = "center";
-      fxCtx.textBaseline = "middle";
-      fxCtx.font = "bold 60px -apple-system, system-ui, sans-serif";
-      fxCtx.lineWidth = 7;
-      fxCtx.strokeStyle = "rgba(0,0,0,0.6)";
-      fxCtx.strokeText(comboPopup.text, 0, 0);
-      fxCtx.fillStyle = "#ffe14d";
-      fxCtx.fillText(comboPopup.text, 0, 0);
+
+      // Modern, understated backdrop: a soft cool bloom that scales and fades
+      // with the image. No spinning starbursts or strobing sparks.
+      const glowR = 150 * s;
+      const bloom = fxCtx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+      bloom.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.10) + ")");
+      bloom.addColorStop(0.45, "rgba(150, 190, 255, " + (alpha * 0.05) + ")");
+      bloom.addColorStop(1, "rgba(150, 190, 255, 0)");
+      fxCtx.fillStyle = bloom;
+      fxCtx.beginPath();
+      fxCtx.arc(0, 0, glowR, 0, Math.PI * 2);
+      fxCtx.fill();
+
+      fxCtx.globalAlpha = alpha;
+      fxCtx.scale(s, s);
+
+      const targetImg = COMBO_IMAGES[comboPopup.combo] || COMBO_IMAGES[4];
+      if (targetImg && targetImg.complete && targetImg.naturalWidth > 0) {
+        // Image height matches approx the text original height
+        const h = 80;
+        const w = targetImg.naturalWidth * (h / targetImg.naturalHeight);
+        fxCtx.drawImage(targetImg, -w/2, -h/2, w, h);
+      } else {
+        fxCtx.textAlign = "center";
+        fxCtx.textBaseline = "middle";
+        fxCtx.font = "bold 60px -apple-system, system-ui, sans-serif";
+        fxCtx.lineWidth = 7;
+        fxCtx.strokeStyle = "rgba(0,0,0,0.6)";
+        fxCtx.strokeText(comboPopup.text, 0, 0);
+        fxCtx.fillStyle = "#ffe14d";
+        fxCtx.fillText(comboPopup.text, 0, 0);
+      }
       fxCtx.restore();
     }
   }
@@ -641,6 +917,43 @@ function animateClear(matched) {
   }, easeIn);
 }
 
+// Soft light under combo'ed objects: a single smooth fade in then out (no
+// strobing on/off) at a gentle, low opacity.
+function animateComboPulse(matched) {
+  return animate(650, (t) => {
+    const glow = Math.sin(t * Math.PI); // 0 → 1 → 0, one smooth rise and fall
+    clear();
+
+    // Gentle underglow beneath each matched candy.
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const key of matched) {
+      const [x, y] = key.split(",").map(Number);
+      const size = CELL - GAP;
+      // Replicate coordinate math from drawCell to align exactly
+      const cx = x * CELL + GAP / 2 + size / 2;
+      const cy = (HEIGHT - 1 - y) * CELL + GAP / 2 + size / 2;
+
+      const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 1.1);
+      rad.addColorStop(0, "rgba(255, 246, 214, " + (glow * 0.5) + ")");
+      rad.addColorStop(0.6, "rgba(255, 224, 160, " + (glow * 0.22) + ")");
+      rad.addColorStop(1, "rgba(255, 224, 160, 0)");
+      ctx.fillStyle = rad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        const c = board.get(x, y);
+        if (c === EMPTY) continue;
+        drawCell(x, y, c, 1);
+      }
+  });
+}
+
 // Candies above cleared gaps fall down, and fresh candies drop in from the top.
 function animateFall(moves, spawns) {
   const items = [];
@@ -671,7 +984,10 @@ async function resolveCascades() {
     scoreEl.textContent = score;
 
     spawnSparkles(matched);          // spark on every cleared match
-    if (combo >= 2) showCombo(combo); // Double, Triple, ... for chained combos
+    if (combo >= 2) {
+      showCombo(combo); // Double, Triple, ... for chained combos
+      await animateComboPulse(matched);
+    }
 
     await animateClear(matched);
     board.clearMatches(matched);
@@ -754,7 +1070,7 @@ function renderDrag() {
 }
 
 canvas.addEventListener("mousedown", (e) => {
-  if (gameOver) { seed = (seed * 1664525 + 1013904223) >>> 0; newGame(); return; }
+  if (gameOver) return; // the end-of-round overlay handles advancing/retrying
   if (resolving) return;
   const cell = pixelToCell(e.clientX, e.clientY);
   if (!cell) return;
@@ -794,9 +1110,8 @@ window.addEventListener("mouseup", () => {
 
 window.addEventListener("keydown", (e) => {
   noteActivity();
-  if (e.key === "r" || e.key === "R") {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    newGame();
+  if ((e.key === "r" || e.key === "R") && inLevel) {
+    startLevel(currentLevel); // restart the current level on a fresh board
   }
 });
 
@@ -805,22 +1120,36 @@ function tick(ts) {
   const dt = (ts - lastTs) / 1000;
   lastTs = ts;
 
+  if (!inLevel) { requestAnimationFrame(tick); return; } // idle on the menu/splash
+
   updateFx(ts, dt);
 
   if (!gameOver) {
-    timeLeft -= dt;
-    if (timeLeft <= 0) {
-      timeLeft = 0;
-      gameOver = true;
-      ovBig.textContent = "TIME!  Score: " + score;
-      overlay.classList.add("show");
+    // Win the moment the goal is reached — but let any in-flight cascade settle
+    // first so its points are all counted before the overlay pops.
+    if (score >= levelTarget && !resolving) {
+      winLevel();
+    } else {
+      timeLeft -= dt;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        gameOver = true;
+        won = false;
+        loseHeart();                 // running out of time costs a life
+        renderHearts();
+        ovBig.textContent = "Time's up!  " + score + " / " + levelTarget;
+        ovSub.textContent = hearts > 0
+          ? "Lost a life — click to retry"
+          : "Out of lives — click for the menu (refills in " + fmtTime(msToNextHeart()) + ")";
+        overlay.classList.add("show");
+      }
+      timeEl.textContent = Math.ceil(timeLeft);
     }
-    timeEl.textContent = Math.ceil(timeLeft);
   }
 
   // Idle hint: after HINT_IDLE_MS with no input, pulse a valid move. While idle
   // the board is otherwise static, so the hint owns the per-frame redraw here.
-  if (!gameOver && !resolving && !dragging) {
+  if (hintsEnabled && !gameOver && !resolving && !dragging) {
     if (!hint && ts - lastActivity > HINT_IDLE_MS) {
       const cells = board.findHint();
       if (cells) hint = { cells, start: ts };
@@ -839,8 +1168,135 @@ function tick(ts) {
   requestAnimationFrame(tick);
 }
 
-newGame();
+// Goal reached: lock the round, unlock the next level (and persist it).
+function winLevel() {
+  gameOver = true;
+  won = true;
+  hint = null;
+  if (currentLevel === unlockedLevel && unlockedLevel < MAX_LEVEL) {
+    unlockedLevel++;
+    saveUnlocked();
+  }
+  if (currentLevel < MAX_LEVEL) {
+    ovBig.textContent = "Level " + currentLevel + " cleared!";
+    ovSub.textContent = "Click for level " + (currentLevel + 1);
+  } else {
+    ovBig.textContent = "You beat all " + MAX_LEVEL + " levels!";
+    ovSub.textContent = "Click to return to the menu";
+  }
+  overlay.classList.add("show");
+}
+
+const splash = document.getElementById("splash");
+const splashLogo = document.getElementById("splash-logo");
+const splashLoader = document.getElementById("splash-loader");
+const levelMenu = document.getElementById("level-menu");
+const gameUi = document.getElementById("game-ui");
+const levelButtons = Array.from(document.querySelectorAll(".level-btn"));
+const heartsBar = document.getElementById("hearts-bar");
+const playHearts = document.getElementById("play-hearts");
+const menuBtn = document.getElementById("menu-btn");
+
+// Five ♥ glyphs, filled up to the current heart count.
+function heartsHtml() {
+  let s = "";
+  for (let i = 0; i < MAX_HEARTS; i++)
+    s += '<span class="' + (i < hearts ? "heart-full" : "heart-empty") + '">♥</span>';
+  return s;
+}
+// Update the menu bar (with a regen countdown) and the in-game HUD lives.
+function renderHearts() {
+  const html = heartsHtml();
+  heartsBar.innerHTML = html +
+    (hearts < MAX_HEARTS ? '<span class="regen">next in ' + fmtTime(msToNextHeart()) + "</span>" : "");
+  playHearts.innerHTML = html;
+}
+
+// Paint the menu so levels up to `unlockedLevel` are playable and the rest read
+// as locked. Called whenever the menu is shown.
+function refreshMenu() {
+  levelButtons.forEach((btn, i) => {
+    const unlocked = (i + 1) <= unlockedLevel;
+    btn.classList.toggle("active", unlocked);
+    btn.classList.toggle("locked", !unlocked);
+  });
+  renderHearts();
+}
+
+// Begin (or restart) a level: difficulty, grid size, fresh seed, board. Costs
+// nothing up front — but with no lives left you can't play, so bounce to menu.
+function startLevel(level) {
+  regenHearts();
+  if (hearts <= 0) { returnToMenu(); return; }
+
+  const cfg = levelConfig(level);
+  currentLevel = level;
+  WIDTH = HEIGHT = cfg.grid;   // the board grows with the level
+  resizeBoard();
+  levelSeconds = cfg.seconds;
+  levelTarget = cfg.target;
+  hintsEnabled = cfg.hints;
+  seed = (seed * 1664525 + 1013904223) >>> 0;
+
+  levelMenu.style.display = "none";
+  gameUi.style.display = "flex";
+  inLevel = true;
+  newGame();
+}
+
+function returnToMenu() {
+  inLevel = false;
+  gameOver = false;
+  gameUi.style.display = "none";
+  refreshMenu();
+  levelMenu.style.display = "grid";
+}
+
+levelButtons.forEach((btn, i) => {
+  btn.addEventListener("click", () => {
+    regenHearts();
+    if ((i + 1) <= unlockedLevel && hearts > 0) startLevel(i + 1);
+    else renderHearts();
+  });
+});
+
+menuBtn.addEventListener("click", returnToMenu);
+
+// Clicking the end-of-round overlay advances on a win (or returns to the menu
+// after the last level) and retries on a loss.
+overlay.addEventListener("click", () => {
+  if (!gameOver) return;
+  if (won) {
+    if (currentLevel < MAX_LEVEL) startLevel(currentLevel + 1);
+    else returnToMenu();
+  } else {
+    startLevel(currentLevel);
+  }
+});
+
+// Lives persist across sessions and refill in real time; tick the regen + UI
+// once a second so the menu countdown stays live and hearts reappear on time.
+loadHearts();
+regenHearts();
+renderHearts();
+setInterval(() => { regenHearts(); renderHearts(); }, 1000);
+
+// 1. Show logobg for 3 seconds
+setTimeout(() => {
+  splashLogo.classList.remove("active");
+  splashLoader.classList.add("active");
+
+  // 2. Show loader for 2 seconds, then reveal the level menu
+  setTimeout(() => {
+    splash.style.display = "none";
+    refreshMenu();
+    levelMenu.style.display = "grid";
+  }, 2000);
+}, 3000);
+
+// One render loop for the whole app; it no-ops until a level is in progress.
 requestAnimationFrame(tick);
+
 </script>
 </body>
 </html>
