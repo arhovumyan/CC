@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Match Duel — match-3 prototype</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #1e1e26;
+    color: #eee;
+    font-family: -apple-system, system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+  #hud {
+    display: flex;
+    gap: 32px;
+    font-size: 22px;
+    margin-bottom: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  #hud .label { color: #9a9aae; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  #hud .val { font-size: 24px; font-weight: 600; }
+  #wrap { position: relative; width: 80vmin; height: 80vmin; }
+  #game { background: #2a2a36; border-radius: 8px; cursor: pointer; display: block; width: 100%; height: 100%; object-fit: contain; }
+  #fx { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; object-fit: contain; }
+  #overlay {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20,20,28,0.82);
+    border-radius: 8px;
+    text-align: center;
+  }
+  #overlay.show { display: flex; }
+  #overlay .big { font-size: 38px; font-weight: 700; }
+  #overlay .sub { font-size: 18px; color: #c5c5d6; margin-top: 10px; }
+  #hint { margin-top: 14px; color: #8a8a9c; font-size: 13px; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <div><div class="label">Score</div><div class="val" id="score">0</div></div>
+    <div><div class="label">Time</div><div class="val" id="time">90</div></div>
+  </div>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <canvas id="fx"></canvas>
+    <div id="overlay">
+      <div class="big" id="ovBig">TIME!</div>
+      <div class="sub" id="ovSub">Press R or click to play again</div>
+    </div>
+  </div>
+  <div id="hint">Drag a candy onto a neighbor to swap. Match 3+ in a row or column.</div>
+
+<script>
+"use strict";
+
+// ============================================================================
+// Core game logic — ported faithfully from the C# (Board / MatchFinder /
+// SeededRandom). Zero rendering concerns live in here.
+// Convention: grid is grid[x][y], y=0 is the BOTTOM row. Tiles fall toward y=0.
+// ============================================================================
+
+const EMPTY = -1;
+
+// mulberry32 — deterministic: same seed => same sequence.
+class SeededRandom {
+  constructor(seed) { this.state = seed >>> 0; }
+  nextUInt() {
+    this.state = (this.state + 0x6D2B79F5) >>> 0;
+    let t = this.state;
+    t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
+    t = (t ^ (t + (Math.imul(t ^ (t >>> 7), t | 61) >>> 0))) >>> 0;
+    return (t ^ (t >>> 14)) >>> 0;
+  }
+  next(maxExclusive) { return this.nextUInt() % maxExclusive; }
+}
+
+// Returns the set of "x,y" cells that are part of any horizontal/vertical 3+ run.
+function findMatches(grid, width, height) {
+  const matched = new Set();
+
+  // Horizontal runs
+  for (let y = 0; y < height; y++) {
+    let runStart = 0;
+    for (let x = 1; x <= width; x++) {
+      const same = x < width && grid[x][y] !== EMPTY && grid[x][y] === grid[runStart][y];
+      if (!same) {
+        if (x - runStart >= 3 && grid[runStart][y] !== EMPTY)
+          for (let k = runStart; k < x; k++) matched.add(k + "," + y);
+        runStart = x;
+      }
+    }
+  }
+
+  // Vertical runs
+  for (let x = 0; x < width; x++) {
+    let runStart = 0;
+    for (let y = 1; y <= height; y++) {
+      const same = y < height && grid[x][y] !== EMPTY && grid[x][y] === grid[x][runStart];
+      if (!same) {
+        if (y - runStart >= 3 && grid[x][runStart] !== EMPTY)
+          for (let k = runStart; k < y; k++) matched.add(x + "," + k);
+        runStart = y;
+      }
+    }
+  }
+
+  return matched;
+}
+
+class Board {
+  constructor(width, height, colorCount, seed) {
+    this.width = width;
+    this.height = height;
+    this.colorCount = colorCount;
+    this.rng = new SeededRandom(seed);
+    this.grid = Array.from({ length: width }, () => new Array(height).fill(EMPTY));
+
+    this.fillNoMatches();
+    let safety = 0;
+    while (!this.hasValidMove() && safety++ < 50) this.fillNoMatches();
+  }
+
+  get(x, y) { return this.grid[x][y]; }
+
+  // Fill so NO 3-in-a-row exists at start (avoid colors that complete a run).
+  fillNoMatches() {
+    for (let x = 0; x < this.width; x++) {
+      for (let y = 0; y < this.height; y++) {
+        let color;
+        do {
+          color = this.rng.next(this.colorCount);
+        } while (
+          (x >= 2 && this.grid[x - 1][y] === color && this.grid[x - 2][y] === color) ||
+          (y >= 2 && this.grid[x][y - 1] === color && this.grid[x][y - 2] === color)
+        );
+        this.grid[x][y] = color;
+      }
+    }
+  }
+
+  isAdjacent(ax, ay, bx, by) {
+    return Math.abs(ax - bx) + Math.abs(ay - by) === 1;
+  }
+
+  swap(ax, ay, bx, by) {
+    const tmp = this.grid[ax][ay];
+    this.grid[ax][ay] = this.grid[bx][by];
+    this.grid[bx][by] = tmp;
+  }
+
+  // Swap two adjacent tiles. Keep it only if it creates a match.
+  trySwap(ax, ay, bx, by) {
+    if (!this.isAdjacent(ax, ay, bx, by)) return false;
+    this.swap(ax, ay, bx, by);
+    if (findMatches(this.grid, this.width, this.height).size > 0) return true;
+    this.swap(ax, ay, bx, by); // revert
+    return false;
+  }
+
+  // ONE resolution pass: clear matches, gravity, refill. Returns tiles cleared.
+  resolveStep() {
+    const matched = findMatches(this.grid, this.width, this.height);
+    if (matched.size === 0) return 0;
+    for (const key of matched) {
+      const [x, y] = key.split(",").map(Number);
+      this.grid[x][y] = EMPTY;
+    }
+    this.applyGravity();
+    this.refill();
+    return matched.size;
+  }
+
+  applyGravity() {
+    for (let x = 0; x < this.width; x++) {
+      let writeY = 0;
+      for (let y = 0; y < this.height; y++) {
+        if (this.grid[x][y] !== EMPTY) {
+          this.grid[x][writeY] = this.grid[x][y];
+          if (writeY !== y) this.grid[x][y] = EMPTY;
+          writeY++;
+        }
+      }
+    }
+  }
+
+  refill() {
+    for (let x = 0; x < this.width; x++)
+      for (let y = 0; y < this.height; y++)
+        if (this.grid[x][y] === EMPTY)
+          this.grid[x][y] = this.rng.next(this.colorCount);
+  }
+
+  // ---- Animation-friendly variants -------------------------------------
+  // Same mechanics as resolveStep(), but split into observable steps that
+  // report what moved/spawned so the renderer can tween candies.
+
+  clearMatches(matched) {
+    for (const key of matched) {
+      const [x, y] = key.split(",").map(Number);
+      this.grid[x][y] = EMPTY;
+    }
+  }
+
+  // Compacts each column toward y=0. Returns [{x, fromY, toY, color}] for every
+  // surviving candy that actually moved.
+  applyGravityMapped() {
+    const moves = [];
+    for (let x = 0; x < this.width; x++) {
+      let writeY = 0;
+      for (let y = 0; y < this.height; y++) {
+        if (this.grid[x][y] !== EMPTY) {
+          const color = this.grid[x][y];
+          if (writeY !== y) {
+            moves.push({ x, fromY: y, toY: writeY, color });
+            this.grid[x][writeY] = color;
+            this.grid[x][y] = EMPTY;
+          }
+          writeY++;
+        }
+      }
+    }
+    return moves;
+  }
+
+  // Fills the empty (top) cells. Returns [{x, y, color, startY}] where startY is
+  // a position above the board the new candy should visually drop in from.
+  refillMapped() {
+    const spawns = [];
+    for (let x = 0; x < this.width; x++) {
+      let nEmpty = 0;
+      for (let y = 0; y < this.height; y++)
+        if (this.grid[x][y] === EMPTY) nEmpty++;
+      if (nEmpty === 0) continue;
+      for (let y = 0; y < this.height; y++) {
+        if (this.grid[x][y] === EMPTY) {
+          const color = this.rng.next(this.colorCount);
+          this.grid[x][y] = color;
+          spawns.push({ x, y, color, startY: y + nEmpty });
+        }
+      }
+    }
+    return spawns;
+  }
+
+  hasValidMove() {
+    for (let x = 0; x < this.width; x++) {
+      for (let y = 0; y < this.height; y++) {
+        if (x + 1 < this.width && this.wouldMatch(x, y, x + 1, y)) return true;
+        if (y + 1 < this.height && this.wouldMatch(x, y, x, y + 1)) return true;
+      }
+    }
+    return false;
+  }
+
+  wouldMatch(ax, ay, bx, by) {
+    this.swap(ax, ay, bx, by);
+    const ok = findMatches(this.grid, this.width, this.height).size > 0;
+    this.swap(ax, ay, bx, by);
+    return ok;
+  }
+
+  // Like hasValidMove, but returns the two cells of the first swap that creates
+  // a match — i.e. the pair to light up as a hint. Null if no move exists.
+  findHint() {
+    for (let x = 0; x < this.width; x++) {
+      for (let y = 0; y < this.height; y++) {
+        if (x + 1 < this.width && this.wouldMatch(x, y, x + 1, y))
+          return [{ x, y }, { x: x + 1, y }];
+        if (y + 1 < this.height && this.wouldMatch(x, y, x, y + 1))
+          return [{ x, y }, { x, y: y + 1 }];
+      }
+    }
+    return null;
+  }
+
+  reshuffle() {
+    let safety = 0;
+    do { this.fillNoMatches(); }
+    while (
+      (findMatches(this.grid, this.width, this.height).size > 0 || !this.hasValidMove())
+      && safety++ < 50
+    );
+  }
+}
+
+// ============================================================================
+// Rendering + input — the only part that touches the DOM/canvas.
+// ============================================================================
+
+const WIDTH = 8, HEIGHT = 8, COLOR_COUNT = 5;
+const MATCH_SECONDS = 90;
+const CELL = 56;
+const GAP = 4;
+
+// Each "color" is now an image. Index order is fixed: the board stores these
+// indices, IMAGE_FILES[i] is the sprite drawn for tile i, and SPARKLE_COLORS[i]
+// is the matching spark color used by the particle burst on a clear.
+const IMAGE_FILES = [
+  "heart-red.png",    // 0 red
+  "Money-green.png",  // 1 green
+  "crown-yellow.png", // 2 yellow
+  "ring-blue.png",    // 3 blue
+  "perfume-purple.png",   // 4 purple
+];
+const SPARKLE_COLORS = [
+  "#e84d57", // red
+  "#66cc73", // green
+  "#f7ed5c", // yellow
+  "#599ef0", // blue
+  "#b373e0", // purple
+];
+const IMAGES = IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const DPR = Math.max(2, window.devicePixelRatio || 1); // multiply resolution for sharpness
+canvas.width = WIDTH * CELL * DPR;
+canvas.height = HEIGHT * CELL * DPR;
+ctx.scale(DPR, DPR);
+
+// Separate overlay canvas for sparkles + combo text, so it can animate freely
+// on top of the board without being wiped by the board's per-frame redraws.
+const fx = document.getElementById("fx");
+const fxCtx = fx.getContext("2d");
+fx.width = WIDTH * CELL * DPR;
+fx.height = HEIGHT * CELL * DPR;
+fxCtx.scale(DPR, DPR);
+
+const scoreEl = document.getElementById("score");
+const timeEl = document.getElementById("time");
+const overlay = document.getElementById("overlay");
+const ovBig = document.getElementById("ovBig");
+
+let board, selX = -1, selY = -1, score = 0, timeLeft = MATCH_SECONDS;
+let gameOver = false, resolving = false;
+let seed = 12345;
+let lastTs = 0;
+let particles = [];      // active sparkle particles
+let comboPopup = null;   // { text, start } for the "Double/Triple" pop
+let lastActivity = 0;    // perf-now of the last input; drives the idle hint
+let hint = null;         // { cells: [{x,y},{x,y}], start } while the hint pulses
+
+const HINT_IDLE_MS = 4000;   // show a hint after this long with no input
+const HINT_DURATION_MS = 2000; // how long the hint pulses before clearing
+const HINT_PULSES = 2;       // grow/shrink cycles packed into the duration
+
+// Record a real interaction so the idle timer restarts and any live hint stops.
+// Repaint the settled board if we interrupted a pulse, so no glow frame lingers.
+function noteActivity() {
+  lastActivity = performance.now();
+  if (hint) { hint = null; render(); }
+}
+
+function newGame() {
+  board = new Board(WIDTH, HEIGHT, COLOR_COUNT, seed);
+  selX = selY = -1;
+  score = 0;
+  timeLeft = MATCH_SECONDS;
+  gameOver = false;
+  resolving = false;
+  particles = [];
+  comboPopup = null;
+  lastActivity = performance.now();
+  hint = null;
+  fxCtx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
+  overlay.classList.remove("show");
+  render();
+}
+
+function roundRect(px, py, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(px + r, py);
+  ctx.arcTo(px + w, py, px + w, py + h, r);
+  ctx.arcTo(px + w, py + h, px, py + h, r);
+  ctx.arcTo(px, py + h, px, py, r);
+  ctx.arcTo(px, py, px + w, py, r);
+  ctx.closePath();
+}
+
+// Draw one candy. gx/gy are grid coords (y=0 bottom) and MAY be fractional so
+// candies can be tweened between cells. dx/dy are extra pixel offsets (shake).
+// sx/sy are independent width/height multipliers used for squash-and-stretch.
+// glow (0..1) makes the sprite "light up" — a white halo plus an additive
+// re-draw that brightens it — used by the idle hint pulse.
+function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 1, glow = 0) {
+  const size = CELL - GAP;
+  const baseX = gx * CELL + GAP / 2;
+  const baseY = (HEIGHT - 1 - gy) * CELL + GAP / 2;
+  const cx = baseX + size / 2 + dx;
+  const cy = baseY + size / 2 + dy;
+  const w = size * scale * sx;
+  const h = size * scale * sy;
+  ctx.globalAlpha = alpha;
+  if (glow > 0) {
+    ctx.shadowColor = "rgba(255,255,255,0.95)";
+    ctx.shadowBlur = 24 * glow;
+  }
+  const img = IMAGES[c % IMAGES.length];
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  } else {
+    // Sprite not loaded yet — fall back to a flat swatch so nothing pops blank.
+    ctx.fillStyle = SPARKLE_COLORS[c % SPARKLE_COLORS.length];
+    roundRect(cx - w / 2, cy - h / 2, w, h, 10);
+    ctx.fill();
+  }
+  if (glow > 0) {
+    ctx.shadowBlur = 0;
+    // Additive second pass brightens the sprite so it reads as "lit up".
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = alpha * glow * 0.6;
+    if (img && img.complete && img.naturalWidth > 0)
+      ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    ctx.globalCompositeOperation = "source-over";
+  }
+  ctx.globalAlpha = 1;
+}
+
+const sparkleOf = (c) => SPARKLE_COLORS[c % SPARKLE_COLORS.length];
+const clear = () => ctx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
+
+// Static render of the settled board, including the selection highlight.
+function render() {
+  clear();
+  for (let x = 0; x < WIDTH; x++) {
+    for (let y = 0; y < HEIGHT; y++) {
+      const c = board.get(x, y);
+      if (c === EMPTY) continue;
+      const selected = (x === selX && y === selY);
+      drawCell(x, y, c, selected ? 1.08 : 1);
+      if (selected) {
+        const size = (CELL - GAP) * 1.08;
+        const cx = x * CELL + GAP / 2 + (CELL - GAP) / 2;
+        const cy = (HEIGHT - 1 - y) * CELL + GAP / 2 + (CELL - GAP) / 2;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#ffffff";
+        roundRect(cx - size / 2, cy - size / 2, size, size, 10);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+// Idle hint: redraw the settled board with the two suggested tiles pulsing —
+// growing up to +20% and lighting up, then settling back. Driven by tick().
+function renderHint(now) {
+  const t = (now - hint.start) / HINT_DURATION_MS;        // 0..1 over the hint
+  const p = Math.abs(Math.sin(t * Math.PI * HINT_PULSES)); // 0→1→0, pulsing
+  const scale = 1 + 0.2 * p;                               // up to 20% bigger
+  const hintSet = new Set(hint.cells.map((c) => c.x + "," + c.y));
+  clear();
+  for (let x = 0; x < WIDTH; x++)
+    for (let y = 0; y < HEIGHT; y++) {
+      const c = board.get(x, y);
+      if (c === EMPTY) continue;
+      if (hintSet.has(x + "," + y)) drawCell(x, y, c, scale, 1, 0, 0, 1, 1, p);
+      else drawCell(x, y, c);
+    }
+}
+
+// ---- Tiny tween runner ----------------------------------------------------
+// Calls draw(easedProgress) every frame for `duration` ms, resolves when done.
+function animate(duration, draw, easing) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    function frame(now) {
+      let t = (now - start) / duration;
+      if (t > 1) t = 1;
+      draw(easing ? easing(t) : t);
+      if (t < 1) requestAnimationFrame(frame);
+      else resolve();
+    }
+    requestAnimationFrame(frame);
+  });
+}
+const easeIn = (t) => t * t;            // accelerate — reads like gravity/falling
+const easeOut = (t) => 1 - (1 - t) * (1 - t);
+// Overshoots past 1 then settles — gives moves a springy "jiggle" landing.
+const easeOutBack = (t) => {
+  const c1 = 1.70158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+};
+
+// A damped squash-and-stretch wobble played on cells right after they land,
+// so every move/drop ends with a little jiggle. cells: [{x,y}].
+function animateJiggle(cells) {
+  if (cells.length === 0) return Promise.resolve();
+  const set = new Set(cells.map((c) => c.x + "," + c.y));
+  return animate(260, (t) => {
+    const wob = Math.sin(t * Math.PI * 3) * (1 - t) * 0.24; // decays to 0
+    clear();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        const c = board.get(x, y);
+        if (c === EMPTY) continue;
+        if (set.has(x + "," + y)) drawCell(x, y, c, 1, 1, 0, 0, 1 + wob, 1 - wob);
+        else drawCell(x, y, c);
+      }
+  });
+}
+
+// ---- Sparkles + combo popup ----------------------------------------------
+
+// Burst of little sparks out of every candy in a match (called each clear).
+function spawnSparkles(matched) {
+  for (const key of matched) {
+    const [x, y] = key.split(",").map(Number);
+    const cx = x * CELL + CELL / 2;
+    const cy = (HEIGHT - 1 - y) * CELL + CELL / 2;
+    const base = sparkleOf(board.get(x, y));
+    for (let i = 0; i < 7; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 45 + Math.random() * 130;
+      const life = 0.45 + Math.random() * 0.35;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 40,   // bias upward so they "spark" out
+        life, maxLife: life,
+        size: 2 + Math.random() * 4,
+        color: Math.random() < 0.5 ? "#ffffff" : base,
+      });
+    }
+  }
+}
+
+const COMBO_WORDS = ["", "", "Double", "Triple", "Quadruple", "Quintuple", "Sextuple", "Septuple", "Octuple"];
+const comboWord = (n) => COMBO_WORDS[n] || (n + "× COMBO");
+function showCombo(n) { comboPopup = { text: comboWord(n), start: performance.now() }; }
+
+// Advance + draw sparkles and the combo popup. Driven by the main rAF loop.
+function updateFx(now, dt) {
+  fxCtx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
+
+  // Sparkles
+  const G = 320; // gravity px/s^2
+  for (const p of particles) {
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += G * dt;
+  }
+  particles = particles.filter((p) => p.life > 0);
+
+  fxCtx.shadowBlur = 8;
+  for (const p of particles) {
+    fxCtx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    fxCtx.fillStyle = p.color;
+    fxCtx.shadowColor = p.color;
+    fxCtx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  fxCtx.shadowBlur = 0;
+  fxCtx.globalAlpha = 1;
+
+  // Combo popup: grow (small→big with overshoot) → hold 0.5s → fade 0.2s.
+  if (comboPopup) {
+    const GROW = 0.18, HOLD = 0.5, FADE = 0.2;
+    const t = (now - comboPopup.start) / 1000;
+    let scale, alpha;
+    if (t < GROW) { const p = t / GROW; scale = easeOutBack(p); alpha = Math.min(1, p * 2); }
+    else if (t < GROW + HOLD) { scale = 1; alpha = 1; }
+    else if (t < GROW + HOLD + FADE) { const f = (t - GROW - HOLD) / FADE; scale = 1 + 0.3 * f; alpha = 1 - f; }
+    else { comboPopup = null; }
+
+    if (comboPopup) {
+      fxCtx.save();
+      fxCtx.globalAlpha = alpha;
+      fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) / 2);
+      fxCtx.scale(scale, scale);
+      fxCtx.textAlign = "center";
+      fxCtx.textBaseline = "middle";
+      fxCtx.font = "bold 60px -apple-system, system-ui, sans-serif";
+      fxCtx.lineWidth = 7;
+      fxCtx.strokeStyle = "rgba(0,0,0,0.6)";
+      fxCtx.strokeText(comboPopup.text, 0, 0);
+      fxCtx.fillStyle = "#ffe14d";
+      fxCtx.fillText(comboPopup.text, 0, 0);
+      fxCtx.restore();
+    }
+  }
+}
+
+// Invalid swap: both candies jitter back and forth along the swap axis.
+function animateShake(ax, ay, bx, by) {
+  const horizontal = ay === by;
+  return animate(360, (t) => {
+    const amp = Math.sin(t * Math.PI * 5) * 8 * (1 - t);
+    clear();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        const c = board.get(x, y);
+        if (c === EMPTY) continue;
+        const shaken = (x === ax && y === ay) || (x === bx && y === by);
+        const dx = shaken && horizontal ? amp : 0;
+        const dy = shaken && !horizontal ? -amp : 0;
+        drawCell(x, y, c, 1, 1, dx, dy);
+      }
+  });
+}
+
+// Valid swap: the two candies slide into each other's cell. Grid is already
+// swapped, so each target cell's candy is tweened in from the other position.
+function animateSwap(ax, ay, bx, by) {
+  const ca = board.get(ax, ay), cb = board.get(bx, by);
+  const targets = new Set([ax + "," + ay, bx + "," + by]);
+  return animate(140, (t) => {
+    clear();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        const c = board.get(x, y);
+        if (c === EMPTY || targets.has(x + "," + y)) continue;
+        drawCell(x, y, c);
+      }
+    drawCell(bx + (ax - bx) * t, by + (ay - by) * t, ca);
+    drawCell(ax + (bx - ax) * t, ay + (by - ay) * t, cb);
+  }, easeOutBack);
+}
+
+// Matched candies shrink and fade out before being cleared.
+function animateClear(matched) {
+  return animate(170, (t) => {
+    clear();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        const c = board.get(x, y);
+        if (c === EMPTY) continue;
+        if (matched.has(x + "," + y)) drawCell(x, y, c, 1 - t, 1 - t);
+        else drawCell(x, y, c);
+      }
+  }, easeIn);
+}
+
+// Candies above cleared gaps fall down, and fresh candies drop in from the top.
+function animateFall(moves, spawns) {
+  const items = [];
+  for (const m of moves) items.push({ x: m.x, fromY: m.fromY, toY: m.toY, color: m.color });
+  for (const s of spawns) items.push({ x: s.x, fromY: s.startY, toY: s.y, color: s.color });
+  const targets = new Set(items.map((i) => i.x + "," + i.toY));
+  return animate(230, (t) => {
+    clear();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        const c = board.get(x, y);
+        if (c === EMPTY || targets.has(x + "," + y)) continue;
+        drawCell(x, y, c);
+      }
+    for (const it of items)
+      drawCell(it.x, it.fromY + (it.toY - it.fromY) * t, it.color);
+  }, easeIn);
+}
+
+async function resolveCascades() {
+  resolving = true;
+  let combo = 0;
+  while (true) {
+    const matched = findMatches(board.grid, WIDTH, HEIGHT);
+    if (matched.size === 0) break;
+    combo++;
+    score += matched.size * 10;
+    scoreEl.textContent = score;
+
+    spawnSparkles(matched);          // spark on every cleared match
+    if (combo >= 2) showCombo(combo); // Double, Triple, ... for chained combos
+
+    await animateClear(matched);
+    board.clearMatches(matched);
+    const moves = board.applyGravityMapped();
+    const spawns = board.refillMapped();
+    await animateFall(moves, spawns);
+
+    // Jiggle every candy that just landed (moved or dropped in).
+    const landed = [
+      ...moves.map((m) => ({ x: m.x, y: m.toY })),
+      ...spawns.map((s) => ({ x: s.x, y: s.y })),
+    ];
+    await animateJiggle(landed);
+  }
+
+  render();
+  if (!board.hasValidMove()) { board.reshuffle(); render(); }
+  resolving = false;
+  lastActivity = performance.now(); // start the idle countdown after a settle
+}
+
+function pixelToCell(clientX, clientY) {
+  const p = localPos({ clientX, clientY });
+  const gx = Math.floor(p.x / CELL);
+  const gyFromTop = Math.floor(p.y / CELL);
+  const gy = HEIGHT - 1 - gyFromTop;
+  if (gx < 0 || gx >= WIDTH || gy < 0 || gy >= HEIGHT) return null;
+  return { gx, gy };
+}
+
+// ---- Drag input -----------------------------------------------------------
+// Grab a candy and drag it toward an adjacent cell to swap (like Candy Crush).
+let dragging = false, dragFromX = -1, dragFromY = -1;
+let dragStart = { x: 0, y: 0 }, dragCur = { x: 0, y: 0 };
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const localPos = (e) => {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (canvas.width / r.width) / DPR,
+    y: (e.clientY - r.top) * (canvas.height / r.height) / DPR
+  };
+};
+
+// Which adjacent cell the current drag points at — or null if under threshold.
+function dragDirection() {
+  const dx = dragCur.x - dragStart.x, dy = dragCur.y - dragStart.y;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  if (adx < CELL * 0.33 && ady < CELL * 0.33) return null;
+  if (adx > ady) return { dx: dx > 0 ? 1 : -1, dy: 0 };
+  return { dx: 0, dy: dy > 0 ? -1 : 1 }; // screen-down = lower grid row
+}
+
+// Live preview while dragging: the grabbed candy follows the cursor (clamped to
+// one cell along the chosen axis) and the neighbor slides the opposite way.
+function renderDrag() {
+  const dir = dragDirection();
+  let dxp = dragCur.x - dragStart.x, dyp = dragCur.y - dragStart.y;
+  let nx = -1, ny = -1;
+  if (dir) {
+    if (dir.dx !== 0) { dyp = 0; dxp = clamp(dxp, -CELL, CELL); }
+    else { dxp = 0; dyp = clamp(dyp, -CELL, CELL); }
+    nx = dragFromX + dir.dx; ny = dragFromY + dir.dy;
+    if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) { nx = -1; }
+  } else {
+    dxp = clamp(dxp, -CELL * 0.5, CELL * 0.5);
+    dyp = clamp(dyp, -CELL * 0.5, CELL * 0.5);
+  }
+
+  clear();
+  for (let x = 0; x < WIDTH; x++)
+    for (let y = 0; y < HEIGHT; y++) {
+      const c = board.get(x, y);
+      if (c === EMPTY) continue;
+      if (x === dragFromX && y === dragFromY) continue; // grabbed: drawn last, on top
+      if (x === nx && y === ny) { drawCell(x, y, c, 1, 1, -dxp, -dyp); continue; }
+      drawCell(x, y, c);
+    }
+  drawCell(dragFromX, dragFromY, board.get(dragFromX, dragFromY), 1.12, 1, dxp, dyp);
+}
+
+canvas.addEventListener("mousedown", (e) => {
+  if (gameOver) { seed = (seed * 1664525 + 1013904223) >>> 0; newGame(); return; }
+  if (resolving) return;
+  const cell = pixelToCell(e.clientX, e.clientY);
+  if (!cell) return;
+  noteActivity();
+  dragging = true;
+  dragFromX = cell.gx; dragFromY = cell.gy;
+  dragStart = localPos(e); dragCur = { ...dragStart };
+  renderDrag();
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+  lastActivity = performance.now();
+  dragCur = localPos(e);
+  renderDrag();
+});
+
+window.addEventListener("mouseup", () => {
+  if (!dragging) return;
+  noteActivity();
+  dragging = false;
+  const dir = dragDirection();
+  const fromX = dragFromX, fromY = dragFromY;
+  dragFromX = dragFromY = -1;
+
+  if (!dir) { render(); return; }
+  const tx = fromX + dir.dx, ty = fromY + dir.dy;
+  if (tx < 0 || tx >= WIDTH || ty < 0 || ty >= HEIGHT) { render(); return; }
+
+  resolving = true; // block input through the whole swap/animation sequence
+  if (board.trySwap(fromX, fromY, tx, ty)) {
+    animateSwap(fromX, fromY, tx, ty).then(resolveCascades);
+  } else {
+    animateShake(fromX, fromY, tx, ty).then(() => { resolving = false; render(); });
+  }
+});
+
+window.addEventListener("keydown", (e) => {
+  noteActivity();
+  if (e.key === "r" || e.key === "R") {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    newGame();
+  }
+});
+
+function tick(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+
+  updateFx(ts, dt);
+
+  if (!gameOver) {
+    timeLeft -= dt;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      gameOver = true;
+      ovBig.textContent = "TIME!  Score: " + score;
+      overlay.classList.add("show");
+    }
+    timeEl.textContent = Math.ceil(timeLeft);
+  }
+
+  // Idle hint: after HINT_IDLE_MS with no input, pulse a valid move. While idle
+  // the board is otherwise static, so the hint owns the per-frame redraw here.
+  if (!gameOver && !resolving && !dragging) {
+    if (!hint && ts - lastActivity > HINT_IDLE_MS) {
+      const cells = board.findHint();
+      if (cells) hint = { cells, start: ts };
+      else lastActivity = ts; // no move to suggest — wait out another window
+    }
+    if (hint) {
+      if (ts - hint.start >= HINT_DURATION_MS) {
+        hint = null;
+        lastActivity = ts; // settle, then re-trigger after another idle window
+        render();
+      } else {
+        renderHint(ts);
+      }
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+newGame();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
