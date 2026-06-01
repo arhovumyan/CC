@@ -33,10 +33,9 @@
     width: 100%;
     max-width: 100vw;
     max-height: 100dvh;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     padding:
       max(12px, env(safe-area-inset-top, 0))
@@ -60,6 +59,8 @@
     padding: 0 4px;
   }
   #hud > div { text-align: center; min-width: 52px; }
+  #hud .hud-goals { min-width: 72px; max-width: 140px; }
+  #hud #goal { font-size: clamp(11px, 3vw, 15px); line-height: 1.3; }
   #hud .label { color: #9a9aae; font-size: clamp(10px, 2.8vw, 14px); text-transform: uppercase; letter-spacing: 0.5px; }
   #hud .val { font-size: clamp(16px, 4.5vw, 24px); font-weight: 600; }
   .wallet-coins {
@@ -170,7 +171,12 @@
       repeating-linear-gradient(to bottom, rgba(255,255,255,0.3) 0 1px, transparent 1px calc(100% / var(--rows)));
     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);
   }
-  #fx { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; }
+  #fx { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; z-index: 11; }
+  #pillows {
+    position: absolute; top: 0; left: 0;
+    pointer-events: none; width: 100%; height: 100%;
+    z-index: 12;
+  }
   #overlay {
     position: absolute; inset: 0;
     z-index: 20;
@@ -332,14 +338,96 @@
 
   #level-menu {
     display: none;
-    grid-template-columns: repeat(5, 1fr);
-    gap: clamp(6px, 2vw, 14px);
+    width: min(100%, calc(100vw - 24px));
+    max-width: 100%;
+    overflow: hidden;
+  }
+  #arenas-scroll {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: clamp(12px, 3vw, 20px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 2px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #4a4a58 transparent;
+  }
+  #arenas-scroll::-webkit-scrollbar { height: 6px; }
+  #arenas-scroll::-webkit-scrollbar-thumb {
+    background: #4a4a58;
+    border-radius: 3px;
+  }
+  .arena-panel {
+    flex: 0 0 min(92vw, 400px);
+    scroll-snap-align: center;
+    display: flex;
+    flex-direction: column;
     background: #2a2a36;
-    padding: clamp(12px, 4vw, 28px);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    width: min(100%, 380px);
-    max-width: calc(100vw - 24px);
+    padding: clamp(14px, 4vw, 22px);
+    box-sizing: border-box;
+  }
+  .arena-header {
+    text-align: center;
+    margin-bottom: clamp(10px, 2.5vw, 14px);
+    padding-bottom: clamp(8px, 2vw, 12px);
+    border-bottom: 1px solid #3a3a48;
+  }
+  .arena-title {
+    font-size: clamp(11px, 2.8vw, 12px);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9a9aae;
+    margin: 0 0 4px;
+  }
+  .arena-name {
+    font-size: clamp(17px, 4.5vw, 22px);
+    font-weight: 800;
+    color: #e8e8f0;
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
+  .arena-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 3vw, 20px);
+    margin-bottom: clamp(12px, 3vw, 16px);
+    font-size: clamp(18px, 5vw, 26px);
+  }
+  .arena-status .menu-coins {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: clamp(16px, 4.5vw, 22px);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .arena-status .menu-coins .coin-icon {
+    width: clamp(22px, 5.5vw, 30px);
+    height: clamp(22px, 5.5vw, 30px);
+    object-fit: contain;
+  }
+  .arena-status .regen {
+    flex: 0 0 100%;
+    order: 3;
+    font-size: clamp(11px, 2.8vw, 13px);
+    color: #9a9aae;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+  .arena-level-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: clamp(6px, 2vw, 12px);
+    flex: 1 1 auto;
   }
   .level-btn {
     width: 100%;
@@ -372,31 +460,6 @@
     transform: scale(0.95);
   }
 
-  /* Lives shown above the level grid (spans all 5 columns) and in the HUD. */
-  #hearts-bar {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(12px, 4vw, 28px);
-    margin-bottom: 6px;
-    font-size: clamp(18px, 5vw, 26px);
-  }
-  #hearts-bar .menu-coins {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: clamp(16px, 4.5vw, 22px);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-  #hearts-bar .menu-coins .coin-icon {
-    width: clamp(22px, 5.5vw, 30px);
-    height: clamp(22px, 5.5vw, 30px);
-    object-fit: contain;
-  }
-  #hearts-bar .regen { font-size: clamp(11px, 2.8vw, 13px); color: #9a9aae; font-variant-numeric: tabular-nums; }
   .heart-full { color: #e84d57; }
   .heart-empty { color: #4a4a58; }
 
@@ -429,27 +492,7 @@
 
   <div id="menu-shell">
   <div id="level-menu">
-    <div id="hearts-bar"></div>
-    <div class="level-btn active" id="btn-level-1">1</div>
-    <div class="level-btn locked">2</div>
-    <div class="level-btn locked">3</div>
-    <div class="level-btn locked">4</div>
-    <div class="level-btn locked">5</div>
-    <div class="level-btn locked">6</div>
-    <div class="level-btn locked">7</div>
-    <div class="level-btn locked">8</div>
-    <div class="level-btn locked">9</div>
-    <div class="level-btn locked">10</div>
-    <div class="level-btn locked">11</div>
-    <div class="level-btn locked">12</div>
-    <div class="level-btn locked">13</div>
-    <div class="level-btn locked">14</div>
-    <div class="level-btn locked">15</div>
-    <div class="level-btn locked">16</div>
-    <div class="level-btn locked">17</div>
-    <div class="level-btn locked">18</div>
-    <div class="level-btn locked">19</div>
-    <div class="level-btn locked">20</div>
+    <div id="arenas-scroll"></div>
   </div>
   </div>
 
@@ -457,7 +500,7 @@
     <div id="hud">
       <div><div class="label">Level</div><div class="val" id="level">1</div></div>
       <div><div class="label">Score</div><div class="val" id="score">0</div></div>
-      <div><div class="label">Goal</div><div class="val" id="goal">0</div></div>
+      <div class="hud-goals"><div class="label" id="goal-label">Goals</div><div class="val" id="goal">0</div></div>
       <div><div class="label">Moves</div><div class="val" id="moves">0</div></div>
       <div><div class="label">Lives</div><div class="val" id="play-hearts"></div></div>
       <div><div class="label">Coins</div><div class="val wallet-coins" id="play-coins"></div></div>
@@ -471,13 +514,14 @@
       <canvas id="game"></canvas>
       <div id="grid-overlay"></div>
       <canvas id="fx"></canvas>
+      <canvas id="pillows"></canvas>
       <div id="overlay">
         <div class="big" id="ovBig">Level over</div>
         <div class="sub" id="ovSub">Press R or click to play again</div>
       </div>
     </div>
     </div>
-    <div id="hint">Drag to swap. Match 3+ — reach the goal before moves run out.</div>
+    <div id="hint">Drag to swap. Match 3+ to clear clouds, chains, and complete level goals.</div>
     <button id="menu-btn">☰ Menu</button>
   </div>
 
@@ -498,8 +542,11 @@
     </div>
   </div>
 
+<script src="level-objectives.js"></script>
 <script>
 "use strict";
+
+const COLOR_NAMES = window.COLOR_NAMES || ["red", "green", "yellow", "blue", "purple"];
 
 // ============================================================================
 // Core game logic — ported faithfully from the C# (Board / MatchFinder /
@@ -508,6 +555,117 @@
 // ============================================================================
 
 const EMPTY = -1;
+const CHAIN_BASE = 10;  // 10=chain1, 11=chain2, 12=chain3
+const LINE_H_BASE = 13; // 13..17 = horizontal stripe (color 0..4)
+const LINE_V_BASE = 18; // 18..22 = vertical stripe (color 0..4)
+const GEM = 23;         // drop objective — falls to exit tiles
+
+function baseColor(c) {
+  if (c === EMPTY || isChain(c) || isGem(c)) return -1;
+  if (isLineH(c)) return c - LINE_H_BASE;
+  if (isLineV(c)) return c - LINE_V_BASE;
+  return c;
+}
+function isChain(c) { return c >= CHAIN_BASE && c < LINE_H_BASE; }
+function chainLevel(c) { return c - CHAIN_BASE + 1; }
+function toChain(level) { return CHAIN_BASE + level - 1; }
+function isLineH(c) { return c >= LINE_H_BASE && c < LINE_V_BASE; }
+function isLineV(c) { return c >= LINE_V_BASE && c < LINE_V_BASE + 5; }
+function toLineH(color) { return LINE_H_BASE + color; }
+function toLineV(color) { return LINE_V_BASE + color; }
+function isGem(c) { return c === GEM; }
+function isImmovable(c) { return isChain(c) || isGem(c); }
+function isMatchable(c) { return c !== EMPTY && !isChain(c) && !isGem(c); }
+function isVoidCell(b, x, y) {
+  return b && b.voidCells && b.voidCells.has(x + "," + y);
+}
+function cellBlocksMatch(grid, x, y, voidCells) {
+  if (voidCells && voidCells.has(x + "," + y)) return true;
+  return !isMatchable(grid[x][y]);
+}
+
+function clearTileAt(b, x, y) {
+  const c = b.grid[x][y];
+  if (c === EMPTY) return;
+  if (isChain(c)) b.grid[x][y] = chainLevel(c) <= 1 ? EMPTY : c - 1;
+  else b.grid[x][y] = EMPTY;
+}
+
+// Stripe/line blast removes chains and candies in one hit.
+function clearWaveCell(b, x, y) {
+  const c = b.grid[x][y];
+  if (c === EMPTY) return;
+  if (isChain(c)) {
+    b.grid[x][y] = EMPTY;
+    onChainDamaged(true);
+    return;
+  }
+  b.grid[x][y] = EMPTY;
+}
+
+function applyWaveClears(keys, snap) {
+  for (const key of keys) {
+    const [x, y] = key.split(",").map(Number);
+    if (snap && snap.get(key) === EMPTY) continue;
+    clearWaveCell(board, x, y);
+  }
+}
+
+function waveOrderAlongRow(x0, y, width) {
+  const out = [{ x: x0, y }];
+  for (let d = 1; d < width; d++) {
+    if (x0 + d < width) out.push({ x: x0 + d, y });
+    if (x0 - d >= 0) out.push({ x: x0 - d, y });
+  }
+  return out;
+}
+
+function waveOrderAlongCol(x, y0, height) {
+  const out = [{ x, y: y0 }];
+  for (let d = 1; d < height; d++) {
+    if (y0 + d < height) out.push({ x, y: y0 + d });
+    if (y0 - d >= 0) out.push({ x, y: y0 - d });
+  }
+  return out;
+}
+
+// Row/column wave from each stripe trigger; chaining if the wave hits another stripe.
+function collectLineWaveCells(initialTriggers, grid, width, height, voidCells) {
+  const ordered = [];
+  const seen = new Set();
+  const processed = new Set();
+  const queue = initialTriggers.map((t) => ({ ...t }));
+
+  while (queue.length > 0) {
+    const { x, y, horizontal } = queue.shift();
+    const tk = x + "," + y;
+    if (processed.has(tk)) continue;
+    processed.add(tk);
+    const seq = horizontal
+      ? waveOrderAlongRow(x, y, width)
+      : waveOrderAlongCol(x, y, height);
+    for (const cell of seq) {
+      const k = cell.x + "," + cell.y;
+      if (seen.has(k)) continue;
+      if (voidCells && voidCells.has(k)) continue;
+      seen.add(k);
+      ordered.push(k);
+      const tile = grid[cell.x][cell.y];
+      if ((isLineH(tile) || isLineV(tile)) && !processed.has(k)) {
+        queue.push({
+          x: cell.x,
+          y: cell.y,
+          horizontal: isLineH(tile),
+        });
+      }
+    }
+  }
+  return ordered;
+}
+
+function sameTile(a, b) {
+  return isMatchable(a) && isMatchable(b) && baseColor(a) === baseColor(b);
+}
 
 // mulberry32 — deterministic: same seed => same sequence.
 class SeededRandom {
@@ -523,32 +681,32 @@ class SeededRandom {
 }
 
 // Returns the set of "x,y" cells that are part of any horizontal/vertical 3+ run.
-function findMatches(grid, width, height) {
+function findMatches(grid, width, height, voidCells) {
   const matched = new Set();
 
-  // Horizontal runs
   for (let y = 0; y < height; y++) {
-    let runStart = 0;
-    for (let x = 1; x <= width; x++) {
-      const same = x < width && grid[x][y] !== EMPTY && grid[x][y] === grid[runStart][y];
-      if (!same) {
-        if (x - runStart >= 3 && grid[runStart][y] !== EMPTY)
-          for (let k = runStart; k < x; k++) matched.add(k + "," + y);
-        runStart = x;
-      }
+    let x = 0;
+    while (x < width) {
+      if (cellBlocksMatch(grid, x, y, voidCells)) { x++; continue; }
+      const runStart = x;
+      x++;
+      while (x < width && !cellBlocksMatch(grid, x, y, voidCells) &&
+        sameTile(grid[x][y], grid[runStart][y])) x++;
+      if (x - runStart >= 3)
+        for (let k = runStart; k < x; k++) matched.add(k + "," + y);
     }
   }
 
-  // Vertical runs
   for (let x = 0; x < width; x++) {
-    let runStart = 0;
-    for (let y = 1; y <= height; y++) {
-      const same = y < height && grid[x][y] !== EMPTY && grid[x][y] === grid[x][runStart];
-      if (!same) {
-        if (y - runStart >= 3 && grid[x][runStart] !== EMPTY)
-          for (let k = runStart; k < y; k++) matched.add(x + "," + k);
-        runStart = y;
-      }
+    let y = 0;
+    while (y < height) {
+      if (cellBlocksMatch(grid, x, y, voidCells)) { y++; continue; }
+      const runStart = y;
+      y++;
+      while (y < height && !cellBlocksMatch(grid, x, y, voidCells) &&
+        sameTile(grid[x][y], grid[x][runStart])) y++;
+      if (y - runStart >= 3)
+        for (let k = runStart; k < y; k++) matched.add(x + "," + k);
     }
   }
 
@@ -556,11 +714,15 @@ function findMatches(grid, width, height) {
 }
 
 class Board {
-  constructor(width, height, colorCount, seed) {
+  constructor(width, height, colorCount, seed, voidCells) {
     this.width = width;
     this.height = height;
     this.colorCount = colorCount;
     this.rng = new SeededRandom(seed);
+    this.voidCells = voidCells || new Set();
+    this.exitCells = new Set();
+    this.pathCells = new Set();
+    this.pillows = Array.from({ length: width }, () => new Array(height).fill(0));
     this.grid = Array.from({ length: width }, () => new Array(height).fill(EMPTY));
 
     this.fillNoMatches();
@@ -574,12 +736,18 @@ class Board {
   fillNoMatches() {
     for (let x = 0; x < this.width; x++) {
       for (let y = 0; y < this.height; y++) {
+        if (isVoidCell(this, x, y)) {
+          this.grid[x][y] = EMPTY;
+          continue;
+        }
         let color;
         do {
           color = this.rng.next(this.colorCount);
         } while (
-          (x >= 2 && this.grid[x - 1][y] === color && this.grid[x - 2][y] === color) ||
-          (y >= 2 && this.grid[x][y - 1] === color && this.grid[x][y - 2] === color)
+          (x >= 2 && !isVoidCell(this, x - 1, y) && !isVoidCell(this, x - 2, y) &&
+            this.grid[x - 1][y] === color && this.grid[x - 2][y] === color) ||
+          (y >= 2 && !isVoidCell(this, x, y - 1) && !isVoidCell(this, x, y - 2) &&
+            this.grid[x][y - 1] === color && this.grid[x][y - 2] === color)
         );
         this.grid[x][y] = color;
       }
@@ -596,18 +764,20 @@ class Board {
     this.grid[bx][by] = tmp;
   }
 
-  // Swap two adjacent tiles. Keep it only if it creates a match.
+  // Swap two adjacent tiles. Keep it only if it creates a match. Chains never move.
   trySwap(ax, ay, bx, by) {
     if (!this.isAdjacent(ax, ay, bx, by)) return false;
+    if (isVoidCell(this, ax, ay) || isVoidCell(this, bx, by)) return false;
+    if (isImmovable(this.grid[ax][ay]) || isImmovable(this.grid[bx][by])) return false;
     this.swap(ax, ay, bx, by);
-    if (findMatches(this.grid, this.width, this.height).size > 0) return true;
+    if (findMatches(this.grid, this.width, this.height, this.voidCells).size > 0) return true;
     this.swap(ax, ay, bx, by); // revert
     return false;
   }
 
   // ONE resolution pass: clear matches, gravity, refill. Returns tiles cleared.
   resolveStep() {
-    const matched = findMatches(this.grid, this.width, this.height);
+    const matched = findMatches(this.grid, this.width, this.height, this.voidCells);
     if (matched.size === 0) return 0;
     for (const key of matched) {
       const [x, y] = key.split(",").map(Number);
@@ -618,23 +788,28 @@ class Board {
     return matched.size;
   }
 
+  columnSlots(x) {
+    const slots = [];
+    for (let y = 0; y < this.height; y++)
+      if (!isVoidCell(this, x, y)) slots.push(y);
+    return slots;
+  }
+
   applyGravity() {
     for (let x = 0; x < this.width; x++) {
-      let writeY = 0;
-      for (let y = 0; y < this.height; y++) {
-        if (this.grid[x][y] !== EMPTY) {
-          this.grid[x][writeY] = this.grid[x][y];
-          if (writeY !== y) this.grid[x][y] = EMPTY;
-          writeY++;
-        }
-      }
+      const slots = this.columnSlots(x);
+      const tiles = [];
+      for (const y of slots)
+        if (this.grid[x][y] !== EMPTY) tiles.push(this.grid[x][y]);
+      for (const y of slots) this.grid[x][y] = EMPTY;
+      for (let i = 0; i < tiles.length; i++) this.grid[x][slots[i]] = tiles[i];
     }
   }
 
   refill() {
     for (let x = 0; x < this.width; x++)
       for (let y = 0; y < this.height; y++)
-        if (this.grid[x][y] === EMPTY)
+        if (!isVoidCell(this, x, y) && this.grid[x][y] === EMPTY)
           this.grid[x][y] = this.rng.next(this.colorCount);
   }
 
@@ -649,41 +824,65 @@ class Board {
     }
   }
 
-  // Compacts each column toward y=0. Returns [{x, fromY, toY, color}] for every
-  // surviving candy that actually moved.
+  // When a match/wave clears next to a chain, damage it (chain3→2→1→gone).
+  damageAdjacentChains(matched) {
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const hit = new Set();
+    for (const key of matched) {
+      const [x, y] = key.split(",").map(Number);
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= this.width || ny < 0 || ny >= this.height) continue;
+        if (isVoidCell(this, nx, ny)) continue;
+        if (isChain(this.grid[nx][ny])) hit.add(nx + "," + ny);
+      }
+    }
+    for (const key of hit) {
+      const [x, y] = key.split(",").map(Number);
+      const c = this.grid[x][y];
+      const before = chainLevel(c);
+      this.grid[x][y] = before <= 1 ? EMPTY : c - 1;
+      if (typeof onChainDamaged === "function") onChainDamaged(before <= 1);
+    }
+  }
+
   applyGravityMapped() {
     const moves = [];
     for (let x = 0; x < this.width; x++) {
-      let writeY = 0;
-      for (let y = 0; y < this.height; y++) {
+      const slots = this.columnSlots(x);
+      const tiles = [];
+      const fromYs = [];
+      for (const y of slots) {
         if (this.grid[x][y] !== EMPTY) {
-          const color = this.grid[x][y];
-          if (writeY !== y) {
-            moves.push({ x, fromY: y, toY: writeY, color });
-            this.grid[x][writeY] = color;
-            this.grid[x][y] = EMPTY;
-          }
-          writeY++;
+          tiles.push(this.grid[x][y]);
+          fromYs.push(y);
         }
+      }
+      for (const y of slots) this.grid[x][y] = EMPTY;
+      for (let i = 0; i < tiles.length; i++) {
+        const toY = slots[i];
+        if (fromYs[i] !== toY) moves.push({ x, fromY: fromYs[i], toY, color: tiles[i] });
+        this.grid[x][toY] = tiles[i];
       }
     }
     return moves;
   }
 
-  // Fills the empty (top) cells. Returns [{x, y, color, startY}] where startY is
-  // a position above the board the new candy should visually drop in from.
   refillMapped() {
     const spawns = [];
     for (let x = 0; x < this.width; x++) {
+      const slots = this.columnSlots(x);
       let nEmpty = 0;
-      for (let y = 0; y < this.height; y++)
+      for (const y of slots)
         if (this.grid[x][y] === EMPTY) nEmpty++;
       if (nEmpty === 0) continue;
-      for (let y = 0; y < this.height; y++) {
+      let spawned = 0;
+      for (const y of slots) {
         if (this.grid[x][y] === EMPTY) {
           const color = this.rng.next(this.colorCount);
           this.grid[x][y] = color;
-          spawns.push({ x, y, color, startY: y + nEmpty });
+          spawns.push({ x, y, color, startY: y + (nEmpty - spawned) });
+          spawned++;
         }
       }
     }
@@ -693,8 +892,11 @@ class Board {
   hasValidMove() {
     for (let x = 0; x < this.width; x++) {
       for (let y = 0; y < this.height; y++) {
-        if (x + 1 < this.width && this.wouldMatch(x, y, x + 1, y)) return true;
-        if (y + 1 < this.height && this.wouldMatch(x, y, x, y + 1)) return true;
+        if (isVoidCell(this, x, y) || isImmovable(this.grid[x][y])) continue;
+        if (x + 1 < this.width && !isVoidCell(this, x + 1, y) &&
+          !isImmovable(this.grid[x + 1][y]) && this.wouldMatch(x, y, x + 1, y)) return true;
+        if (y + 1 < this.height && !isVoidCell(this, x, y + 1) &&
+          !isImmovable(this.grid[x][y + 1]) && this.wouldMatch(x, y, x, y + 1)) return true;
       }
     }
     return false;
@@ -702,19 +904,20 @@ class Board {
 
   wouldMatch(ax, ay, bx, by) {
     this.swap(ax, ay, bx, by);
-    const ok = findMatches(this.grid, this.width, this.height).size > 0;
+    const ok = findMatches(this.grid, this.width, this.height, this.voidCells).size > 0;
     this.swap(ax, ay, bx, by);
     return ok;
   }
 
-  // Like hasValidMove, but returns the two cells of the first swap that creates
-  // a match — i.e. the pair to light up as a hint. Null if no move exists.
   findHint() {
     for (let x = 0; x < this.width; x++) {
       for (let y = 0; y < this.height; y++) {
-        if (x + 1 < this.width && this.wouldMatch(x, y, x + 1, y))
+        if (isVoidCell(this, x, y) || isImmovable(this.grid[x][y])) continue;
+        if (x + 1 < this.width && !isVoidCell(this, x + 1, y) &&
+          !isImmovable(this.grid[x + 1][y]) && this.wouldMatch(x, y, x + 1, y))
           return [{ x, y }, { x: x + 1, y }];
-        if (y + 1 < this.height && this.wouldMatch(x, y, x, y + 1))
+        if (y + 1 < this.height && !isVoidCell(this, x, y + 1) &&
+          !isImmovable(this.grid[x][y + 1]) && this.wouldMatch(x, y, x, y + 1))
           return [{ x, y }, { x, y: y + 1 }];
       }
     }
@@ -725,7 +928,7 @@ class Board {
     let safety = 0;
     do { this.fillNoMatches(); }
     while (
-      (findMatches(this.grid, this.width, this.height).size > 0 || !this.hasValidMove())
+      (findMatches(this.grid, this.width, this.height, this.voidCells).size > 0 || !this.hasValidMove())
       && safety++ < 50
     );
   }
@@ -746,11 +949,11 @@ const GAP = 4;
 // indices, IMAGE_FILES[i] is the sprite drawn for tile i, and SPARKLE_COLORS[i]
 // is the matching spark color used by the particle burst on a clear.
 const IMAGE_FILES = [
-  "heart-red.png",    // 0 red
-  "Money-green.png",  // 1 green
-  "crown-yellow.png", // 2 yellow
-  "ring-blue.png",    // 3 blue
-  "perfume-purple.png",   // 4 purple
+  "red.png",    // 0 red
+  "green.png",  // 1 green
+  "yellow.png", // 2 yellow
+  "blue.png",   // 3 blue
+  "purple.png", // 4 purple
 ];
 const SPARKLE_COLORS = [
   "#e84d57", // red
@@ -760,6 +963,356 @@ const SPARKLE_COLORS = [
   "#b373e0", // purple
 ];
 const IMAGES = IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+const CHAIN_IMAGE_FILES = ["chain1.png", "chain2.png", "chain3.png"];
+const CHAIN_IMAGES = CHAIN_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+const pillowImg = new Image();
+pillowImg.src = "pillow.png";
+const HLINE_IMAGE_FILES = [
+  "HorizontalLines/red.png",
+  "HorizontalLines/green.png",
+  "HorizontalLines/yellow.png",
+  "HorizontalLines/blue.png",
+  "HorizontalLines/Purple.png",
+];
+const VLINE_IMAGE_FILES = [
+  "VerticalLines/red.png",
+  "VerticalLines/green.png",
+  "VerticalLines/yellow.png",
+  "VerticalLines/blue.png",
+  "VerticalLines/purple.png",
+];
+const HLINE_IMAGES = HLINE_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+const VLINE_IMAGES = VLINE_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+
+function shufflePool(pool, rng) {
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = rng.next(i + 1);
+    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+}
+
+function candyPool(b) {
+  const pool = [];
+  for (let x = 0; x < b.width; x++)
+    for (let y = 0; y < b.height; y++) {
+      if (isVoidCell(b, x, y)) continue;
+      const c = b.grid[x][y];
+      if (c >= 0 && c < COLOR_COUNT) pool.push(x + "," + y);
+    }
+  return pool;
+}
+
+function countChainsOnBoard(b) {
+  let n = 0;
+  for (let x = 0; x < b.width; x++)
+    for (let y = 0; y < b.height; y++)
+      if (isChain(b.grid[x][y])) n++;
+  return n;
+}
+
+// Chains only spawn inside fixed zones (never scattered). y=0 is the bottom row.
+function chainPlacementPool(b, pattern) {
+  const keys = [];
+  const w = b.width, h = b.height;
+  const add = (x, y) => {
+    if (x >= 0 && x < w && y >= 0 && y < h && !isVoidCell(b, x, y)) keys.push(x + "," + y);
+  };
+  const bottomThrough = (pct) => {
+    const maxY = Math.max(0, Math.ceil(h * pct) - 1);
+    for (let y = 0; y <= maxY; y++)
+      for (let x = 0; x < w; x++) add(x, y);
+  };
+  const topBandFree = (pct) => {
+    const chainBelowY = Math.ceil(h * (1 - pct));
+    for (let y = 0; y < chainBelowY; y++)
+      for (let x = 0; x < w; x++) add(x, y);
+  };
+
+  if (pattern === "bottom2") {
+    for (let y = 0; y < Math.min(2, h); y++)
+      for (let x = 0; x < w; x++) add(x, y);
+  } else if (pattern === "bottom3") {
+    for (let y = 0; y < Math.min(3, h); y++)
+      for (let x = 0; x < w; x++) add(x, y);
+  } else if (pattern === "bottomSides") {
+    for (let y = 0; y < Math.min(2, h); y++)
+      for (let x = 0; x < w; x++) add(x, y);
+    for (let y = 2; y < h; y++) { add(0, y); add(w - 1, y); }
+  } else if (pattern === "bottomHeavy") {
+    for (let y = 0; y < Math.min(3, h); y++)
+      for (let x = 0; x < w; x++) add(x, y);
+    for (let y = 3; y < Math.ceil(h * 0.55); y++) { add(0, y); add(w - 1, y); }
+  } else if (pattern === "bottom70") {
+    bottomThrough(0.7);
+  } else if (pattern === "bottom75") {
+    bottomThrough(0.75);
+  } else if (pattern === "bottom80") {
+    bottomThrough(0.8);
+  } else if (pattern === "bottom85") {
+    bottomThrough(0.85);
+  } else if (pattern === "topBand20") {
+    topBandFree(0.2);
+  } else if (pattern === "topBand25") {
+    topBandFree(0.25);
+  } else if (pattern === "bottomSplit") {
+    const maxY = Math.max(0, Math.ceil(h * 0.8) - 1);
+    const mid = Math.floor(w / 2);
+    const ventY = Math.ceil(h * 0.55);
+    for (let y = 0; y <= maxY; y++)
+      for (let x = 0; x < w; x++) {
+        if (x === mid && y >= ventY) continue;
+        add(x, y);
+      }
+  } else if (pattern === "bottomWings") {
+    const maxY = Math.max(0, Math.ceil(h * 0.78) - 1);
+    const l = Math.max(1, Math.floor(w * 0.28));
+    const r = Math.min(w - 2, Math.floor(w * 0.72));
+    for (let y = 0; y <= maxY; y++)
+      for (let x = 0; x < w; x++)
+        if (x <= l || x >= r || y < Math.min(3, h)) add(x, y);
+  } else if (pattern === "bottomMoat") {
+    for (let y = 0; y < Math.min(3, h); y++)
+      for (let x = 0; x < w; x++) add(x, y);
+    const maxY = Math.max(3, Math.ceil(h * 0.72) - 1);
+    for (let y = 3; y <= maxY; y++) { add(0, y); add(w - 1, y); }
+    for (let y = 3; y <= maxY; y++)
+      for (let x = 1; x < w - 1; x++) add(x, y);
+  } else if (pattern === "bottomCorridor") {
+    const maxY = Math.max(0, Math.ceil(h * 0.75) - 1);
+    const l = Math.max(0, Math.floor(w * 0.22));
+    const r = Math.min(w - 1, Math.floor(w * 0.78));
+    for (let y = 0; y <= maxY; y++)
+      for (let x = 0; x < w; x++)
+        if (x <= l || x >= r) add(x, y);
+  } else if (pattern === "lowerWalls") {
+    const maxY = Math.max(0, Math.ceil(h * 0.82) - 1);
+    for (let y = 0; y <= maxY; y++) { add(0, y); add(w - 1, y); }
+    for (let y = 0; y < Math.min(2, h); y++)
+      for (let x = 1; x < w - 1; x++) add(x, y);
+  } else if (pattern === "walls") {
+    const maxY = Math.max(0, Math.ceil(h * 0.85) - 1);
+    for (let y = 0; y <= maxY; y++) { add(0, y); add(w - 1, y); }
+    for (let y = 0; y < Math.min(2, h); y++)
+      for (let x = 1; x < w - 1; x++) add(x, y);
+  } else if (pattern === "finale") {
+    bottomThrough(0.88);
+  } else if (pattern === "arena5pit") {
+    topBandFree(0.15);
+  }
+  return keys;
+}
+
+const ARENA2_CHAIN_PATTERNS = [
+  "bottom2", "bottom3", "bottomSides", "bottomHeavy", "bottomSides",
+  "bottom3", "bottomHeavy", "bottomMoat", "bottomCorridor", "bottomHeavy",
+  "bottomSides", "bottom3", "bottomWings", "bottomHeavy", "bottomMoat",
+  "bottomCorridor", "bottomHeavy", "bottomSides", "bottom3", "finale",
+];
+
+const ARENA3_CHAIN_PATTERNS = [
+  "bottom70", "bottom80", "topBand20", "bottom75", "bottomWings",
+  "bottomSplit", "bottomMoat", "bottom80", "topBand25", "bottomCorridor",
+  "bottom85", "bottomSplit", "bottom75", "bottomWings", "bottom80",
+  "bottomMoat", "bottomCorridor", "bottom85", "bottom80", "finale",
+];
+
+const ARENA4_CHAIN_PATTERNS = [
+  "bottom75", "lowerWalls", "bottom80", "bottomSplit", "bottomMoat",
+  "topBand25", "bottomCorridor", "bottom85", "bottomWings", "lowerWalls",
+  "bottom80", "bottomSplit", "bottom75", "bottomMoat", "topBand20",
+  "bottomCorridor", "lowerWalls", "bottom85", "bottom80", "finale",
+];
+
+const ARENA5_CHAIN_PATTERNS = [
+  "arena5pit", "bottom85", "bottomCorridor", "arena5pit", "bottomSplit",
+  "lowerWalls", "bottom85", "bottomMoat", "arena5pit", "bottom80",
+  "bottomWings", "lowerWalls", "bottom85", "bottomSplit", "arena5pit",
+  "bottomMoat", "bottomCorridor", "bottom85", "bottom80", "finale",
+];
+
+function chainPlacementForArena(arena, slot, finale) {
+  const idx = Math.min(19, Math.max(0, slot - 1));
+  if (arena === 2) return finale ? "finale" : ARENA2_CHAIN_PATTERNS[idx];
+  if (arena === 3) return finale ? "finale" : ARENA3_CHAIN_PATTERNS[idx];
+  if (arena === 4) return finale ? "finale" : ARENA4_CHAIN_PATTERNS[idx];
+  if (arena === 5) return finale ? "arena5pit" : ARENA5_CHAIN_PATTERNS[idx];
+  return "bottom80";
+}
+
+function chainPlacementForArena2(slot, finale) {
+  return chainPlacementForArena(2, slot, finale);
+}
+
+function orderedChainPool(b, pattern, seed) {
+  const keys = chainPlacementPool(b, pattern);
+  const byY = {};
+  for (const k of keys) {
+    const [x, y] = k.split(",").map(Number);
+    if (!byY[y]) byY[y] = [];
+    byY[y].push(k);
+  }
+  const out = [];
+  const ys = Object.keys(byY).map(Number).sort((a, b) => a - b);
+  for (const y of ys) {
+    const row = byY[y];
+    const rng = { next: (m) => ((seed + y * 31 + row.length) % m) };
+    shufflePool(row, rng);
+    out.push(...row);
+  }
+  return out;
+}
+
+function placeChainsStrategic(b, chains, pattern, levelSeed) {
+  const tiers = [];
+  for (let i = 0; i < (chains.c3 || 0); i++) tiers.push(3);
+  for (let i = 0; i < (chains.c2 || 0); i++) tiers.push(2);
+  for (let i = 0; i < (chains.c1 || 0); i++) tiers.push(1);
+  if (tiers.length === 0) return;
+  const seed = levelSeed || 0;
+  const pool = orderedChainPool(b, pattern, seed).filter((key) => {
+    const [x, y] = key.split(",").map(Number);
+    const c = b.grid[x][y];
+    return c >= 0 && c < COLOR_COUNT;
+  });
+  let placed = 0;
+  for (let i = 0; i < pool.length && placed < tiers.length; i++) {
+    const [x, y] = pool[i].split(",").map(Number);
+    const old = b.grid[x][y];
+    b.grid[x][y] = toChain(tiers[placed]);
+    if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) {
+      b.grid[x][y] = old;
+      continue;
+    }
+    placed++;
+  }
+}
+
+function placeChains(b, chains) {
+  const tiers = [];
+  for (let i = 0; i < (chains.c3 || 0); i++) tiers.push(3);
+  for (let i = 0; i < (chains.c2 || 0); i++) tiers.push(2);
+  for (let i = 0; i < (chains.c1 || 0); i++) tiers.push(1);
+  if (tiers.length === 0) return;
+  const pool = candyPool(b);
+  shufflePool(pool, b.rng);
+  let placed = 0;
+  for (let i = 0; i < pool.length && placed < tiers.length; i++) {
+    const [x, y] = pool[i].split(",").map(Number);
+    const old = b.grid[x][y];
+    b.grid[x][y] = toChain(tiers[placed]);
+    if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) b.grid[x][y] = old;
+    else placed++;
+  }
+}
+
+function placeLinePowers(b, minN, maxN) {
+  const n = minN + (maxN > minN ? b.rng.next(maxN - minN + 1) : 0);
+  const pool = candyPool(b);
+  shufflePool(pool, b.rng);
+  let placed = 0;
+  for (let i = 0; i < pool.length && placed < n; i++) {
+    const [x, y] = pool[i].split(",").map(Number);
+    const color = b.rng.next(COLOR_COUNT);
+    const tile = b.rng.next(2) === 0 ? toLineH(color) : toLineV(color);
+    const old = b.grid[x][y];
+    b.grid[x][y] = tile;
+    if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) b.grid[x][y] = old;
+    else placed++;
+  }
+}
+
+function placeLevelChains(b) {
+  if (!currentLevelCfg) return;
+  const total =
+    (currentLevelCfg.chains.c1 || 0) +
+    (currentLevelCfg.chains.c2 || 0) +
+    (currentLevelCfg.chains.c3 || 0);
+  if (total <= 0) return;
+  const pattern =
+    currentLevelCfg.chainPlacement ||
+    chainPlacementForArena(currentLevelCfg.arena || 1, currentLevelCfg.slot || 1, !!currentLevelCfg.finale);
+  placeChainsStrategic(b, currentLevelCfg.chains, pattern, currentLevel || 1);
+}
+
+function applyPillows(b, pillows) {
+  if (!pillows || !b.pillows) return;
+  for (const p of pillows) {
+    if (!isVoidCell(b, p.x, p.y)) b.pillows[p.x][p.y] = p.layers;
+  }
+}
+
+function applyPathBlockers(b, pathCfg, chains) {
+  if (!pathCfg || !pathCfg.cells) return;
+  b.pathCells = new Set(pathCfg.cells);
+  const blockN = Math.ceil(pathCfg.cells.length * (pathCfg.block || 0.6));
+  const pool = pathCfg.cells.filter((k) => {
+    const [x, y] = k.split(",").map(Number);
+    return b.grid[x][y] >= 0 && b.grid[x][y] < COLOR_COUNT;
+  });
+  shufflePool(pool, b.rng);
+  let placed = 0;
+  const tiers = [];
+  for (let i = 0; i < (chains.c3 || 0); i++) tiers.push(3);
+  for (let i = 0; i < (chains.c2 || 0); i++) tiers.push(2);
+  for (let i = 0; i < (chains.c1 || 0); i++) tiers.push(1);
+  for (let i = 0; i < pool.length && placed < Math.min(blockN, tiers.length); i++) {
+    const [x, y] = pool[i].split(",").map(Number);
+    const old = b.grid[x][y];
+    b.grid[x][y] = toChain(tiers[placed]);
+    if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) b.grid[x][y] = old;
+    else placed++;
+  }
+}
+
+function placeDropGems(b, drops) {
+  if (!drops || drops.count <= 0) return;
+  b.exitCells = new Set(drops.exits || []);
+  const tops = [];
+  for (let x = 0; x < b.width; x++) {
+    for (let y = b.height - 1; y >= 0; y--) {
+      if (!isVoidCell(b, x, y) && b.grid[x][y] >= 0 && b.grid[x][y] < COLOR_COUNT) {
+        tops.push(x + "," + y);
+        break;
+      }
+    }
+  }
+  shufflePool(tops, b.rng);
+  let placed = 0;
+  for (let i = 0; i < tops.length && placed < drops.count; i++) {
+    const [x, y] = tops[i].split(",").map(Number);
+    b.grid[x][y] = GEM;
+    placed++;
+  }
+}
+
+function setupLevelFeatures() {
+  if (!currentLevelCfg) return;
+  board.exitCells = new Set();
+  board.pathCells = new Set();
+  for (let x = 0; x < board.width; x++)
+    for (let y = 0; y < board.height; y++) board.pillows[x][y] = 0;
+
+  applyPillows(board, currentLevelCfg.pillows);
+  if (currentLevelCfg.path) board.pathCells = new Set(currentLevelCfg.path.cells);
+  placeLevelChains(board);
+  placeDropGems(board, currentLevelCfg.drops);
+  placeLinePowers(board, currentLevelCfg.lines[0], currentLevelCfg.lines[1]);
+  ensureBoardPlayable();
+}
+
+function ensureBoardPlayable() {
+  let safety = 0;
+  while (!board.hasValidMove() && safety++ < 50) {
+    board.reshuffle();
+    if (currentLevelCfg) {
+      applyPillows(board, currentLevelCfg.pillows);
+      if (currentLevelCfg.path) board.pathCells = new Set(currentLevelCfg.path.cells);
+      placeLevelChains(board);
+      placeDropGems(board, currentLevelCfg.drops);
+      placeLinePowers(board, currentLevelCfg.lines[0], currentLevelCfg.lines[1]);
+    }
+  }
+}
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -769,6 +1322,8 @@ const DPR = Math.max(2, window.devicePixelRatio || 1); // multiply resolution fo
 // on top of the board without being wiped by the board's per-frame redraws.
 const fx = document.getElementById("fx");
 const fxCtx = fx.getContext("2d");
+const pillowCanvas = document.getElementById("pillows");
+const pillowCtx = pillowCanvas.getContext("2d");
 const coinCanvas = document.getElementById("coin-fx");
 const coinCtx = coinCanvas.getContext("2d");
 const coinImg = new Image();
@@ -874,11 +1429,16 @@ function resizeBoard() {
   fx.width = WIDTH * CELL * DPR;
   fx.height = HEIGHT * CELL * DPR;
   fxCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  pillowCanvas.width = WIDTH * CELL * DPR;
+  pillowCanvas.height = HEIGHT * CELL * DPR;
+  pillowCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
   const gridOverlay = document.getElementById("grid-overlay");
   if (gridOverlay) {
     gridOverlay.style.setProperty("--cols", WIDTH);
     gridOverlay.style.setProperty("--rows", HEIGHT);
   }
+  const wrap = document.getElementById("wrap");
+  if (wrap) wrap.style.aspectRatio = WIDTH + " / " + HEIGHT;
 }
 resizeBoard();
 
@@ -893,6 +1453,8 @@ const ovSub = document.getElementById("ovSub");
 let board, selX = -1, selY = -1, score = 0;
 let movesLeft = 0, levelMoves = 0;
 let gameOver = false, resolving = false, autoFinishing = false;
+let boardAnimating = false;
+let cascadePromise = null;
 let levelGoalCelebrated = false;
 let passCelebrationPending = false;
 let lastMatchBoardX = 0, lastMatchBoardY = 0;
@@ -911,41 +1473,211 @@ const HINT_IDLE_MS = 4000;   // show a hint after this long with no input
 const HINT_DURATION_MS = 2000; // how long the hint pulses before clearing
 const HINT_PULSES = 2;       // grow/shrink cycles packed into the duration
 
-// ---- Levels ---------------------------------------------------------------
-// All 5 colors are always present; difficulty rises on these tunable dials:
-//   grid    — the board grows from 6x6 up to 12x12. A bigger board is harder
-//             to read and to find/line up combos on. This is the main dial.
-//   target  — the points needed to clear the level (the gate to advance).
-//   moves   — deterministic swap budget; fewer per level (tighter cushion) but
-//             always floored so the goal stays reachable with normal play.
-//   hints   — the idle helper turns off once it gets hard.
-const MAX_LEVEL = 20;
+// ---- Levels (100 levels, 5 arenas × 20) -----------------------------------
+const MAX_LEVEL = 100;
+const ARENA_NAMES = ["Sweet Start", "Chain Lane", "Tight Twist", "Combo Canyon", "Master Mix"];
+// First level of each arena is always playable (temporary / teaser access).
+const ARENA_ENTRY_LEVELS = [1, 21, 41, 61, 81];
 
-// Deterministic move budget from level + goal. Not random. Cushion shrinks each
-// level so later rounds are tighter; floor assumes ~28 pts per successful swap.
-function movesForLevel(level, target, grid) {
-  const PTS_ASSUMED = 36;
-  const baseNeed = target / PTS_ASSUMED;
-  const cushion = Math.max(0.18, 1.25 - (level - 1) * 0.055);
-  let moves = Math.ceil(baseNeed * (1 + cushion));
-  moves = Math.ceil(moves * (1 - (grid - 6) * 0.015));
-  const beatableFloor = Math.ceil(target / 28) + 3;
-  return Math.max(14, beatableFloor, moves);
+function isLevelUnlocked(level) {
+  if (ARENA_ENTRY_LEVELS.includes(level)) return true;
+  return level <= unlockedLevel;
 }
 
+function buildVoidCells(pattern, w, h) {
+  const s = new Set();
+  const add = (x, y) => { if (x >= 0 && x < w && y >= 0 && y < h) s.add(x + "," + y); };
+  if (!pattern || pattern === "none") return s;
+  if (pattern === "corners") {
+    add(0, 0); add(w - 1, 0); add(0, h - 1); add(w - 1, h - 1);
+    if (w >= 9) { add(1, 0); add(w - 2, 0); add(0, 1); add(w - 1, 1); }
+  } else if (pattern === "ring" && w >= 8 && h >= 8) {
+    const cx = Math.floor(w / 2), cy = Math.floor(h / 2);
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++) add(cx + dx, cy + dy);
+  } else if (pattern === "split") {
+    const mid = Math.floor(w / 2);
+    for (let y = 0; y < h; y++) add(mid, y);
+  } else if (pattern === "island") {
+    const cx = Math.floor(w / 2), cy = Math.floor(h / 2);
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++) add(cx + dx, cy + dy);
+  } else if (pattern === "trenches") {
+    const mx = Math.floor(w / 2), my = Math.floor(h / 2);
+    for (let x = 0; x < w; x++) add(x, my);
+    for (let y = 0; y < h; y++) add(mx, y);
+  } else if (pattern === "pillars") {
+    for (let y = 1; y < h - 1; y++) { add(1, y); add(w - 2, y); }
+  }
+  return s;
+}
+
+function distributeChains(total, arena, finale, progress) {
+  const c = { c1: 0, c2: 0, c3: 0 };
+  if (total <= 0) return c;
+  const p = progress || 0;
+  if (arena === 2) {
+    c.c3 = finale ? Math.max(1, Math.floor(total * 0.2)) : (p > 0.55 ? Math.floor(total * 0.12) : 0);
+    c.c2 = Math.floor(total * (0.12 + p * 0.28));
+    c.c1 = Math.max(0, total - c.c2 - c.c3);
+  } else if (arena <= 1) {
+    c.c3 = 0;
+    c.c2 = 0;
+    c.c1 = total;
+  } else if (arena === 3) {
+    c.c3 = Math.floor(total * (finale ? 0.28 : 0.14));
+    c.c2 = Math.floor(total * 0.38);
+    c.c1 = Math.max(0, total - c.c2 - c.c3);
+  } else {
+    c.c3 = Math.floor(total * (finale ? 0.42 : 0.26));
+    c.c2 = Math.floor(total * 0.34);
+    c.c1 = Math.max(0, total - c.c2 - c.c3);
+  }
+  return c;
+}
+
+// Level defs built in level-objectives.js (loaded before this script ends).
+let LEVEL_DEFINITIONS = [];
+
 function levelConfig(level) {
-  const grid = Math.min(12, 6 + Math.floor((level - 1) / 3));
-  const target = 150 + (level - 1) * 150;
-  return {
-    grid,
-    target,
-    moves: movesForLevel(level, target, grid),
-    hints: level <= 6,
+  const def = LEVEL_DEFINITIONS[level - 1];
+  return { ...def, gridW: def.w, gridH: def.h };
+}
+
+const goalLabelEl = document.getElementById("goal-label");
+let levelProgress = null;
+
+function initLevelProgress() {
+  levelProgress = {
+    collect: {},
+    stripes: 0,
+    chainsBroken: 0,
+    combos: 0,
+    dropsCollected: 0,
   };
+  if (!currentLevelCfg) return;
+  for (const obj of currentLevelCfg.objectives || []) {
+    if (obj.type === "collect") levelProgress.collect[obj.color] = 0;
+  }
+}
+
+function countPillowsRemaining(b) {
+  let n = 0;
+  if (!b || !b.pillows) return 0;
+  for (let x = 0; x < b.width; x++)
+    for (let y = 0; y < b.height; y++)
+      if (b.pillows[x][y] > 0) n++;
+  return n;
+}
+
+function pathBlockersRemaining(b) {
+  if (!b.pathCells || b.pathCells.size === 0) return 0;
+  let n = 0;
+  for (const key of b.pathCells) {
+    const [x, y] = key.split(",").map(Number);
+    if (isChain(b.grid[x][y])) n++;
+  }
+  return n;
+}
+
+function onChainDamaged(removed) {
+  if (levelProgress) levelProgress.chainsBroken += removed ? 1 : 0;
+}
+
+function damagePillowsOnCells(b, keys) {
+  if (!b.pillows) return;
+  for (const key of keys) {
+    const [x, y] = key.split(",").map(Number);
+    if (b.pillows[x][y] > 0) b.pillows[x][y]--;
+  }
+}
+
+function trackCollectFromMatch(matched) {
+  if (!levelProgress) return;
+  for (const key of matched) {
+    const [x, y] = key.split(",").map(Number);
+    const c = board.grid[x][y];
+    if (c >= 0 && c < COLOR_COUNT) {
+      levelProgress.collect[c] = (levelProgress.collect[c] || 0) + 1;
+    }
+  }
+}
+
+function collectGemsAtExits() {
+  if (!board || !board.exitCells || board.exitCells.size === 0) return;
+  for (const key of board.exitCells) {
+    const [x, y] = key.split(",").map(Number);
+    if (isGem(board.get(x, y))) {
+      board.grid[x][y] = EMPTY;
+      if (levelProgress) levelProgress.dropsCollected++;
+    }
+  }
+}
+
+function objectiveMet(obj) {
+  if (!obj) return true;
+  switch (obj.type) {
+    case "score": return score >= obj.target;
+    case "pillows": return countPillowsRemaining(board) === 0;
+    case "chains": return countChainsOnBoard(board) === 0;
+    case "drops": return levelProgress.dropsCollected >= obj.amount;
+    case "collect": return (levelProgress.collect[obj.color] || 0) >= obj.amount;
+    case "stripes": return levelProgress.stripes >= obj.amount;
+    case "combos": return levelProgress.combos >= obj.amount;
+    case "path": return pathBlockersRemaining(board) === 0;
+    default: return true;
+  }
+}
+
+function levelGoalMet() {
+  if (!currentLevelCfg || !currentLevelCfg.objectives) return score >= levelTarget;
+  return currentLevelCfg.objectives.every(objectiveMet);
+}
+
+function objectiveHudLine(obj) {
+  switch (obj.type) {
+    case "score": return "Score " + score + "/" + obj.target;
+    case "pillows": {
+      const n = countPillowsRemaining(board);
+      return "Clouds " + (n === 0 ? "✓" : n + " left");
+    }
+    case "chains": {
+      const n = countChainsOnBoard(board);
+      return "Chains " + (n === 0 ? "✓" : n + " left");
+    }
+    case "drops":
+      return "Drop " + levelProgress.dropsCollected + "/" + obj.amount;
+    case "collect": {
+      const name = obj.label || COLOR_NAMES[obj.color] || "candy";
+      return name + " " + (levelProgress.collect[obj.color] || 0) + "/" + obj.amount;
+    }
+    case "stripes": return "Stripes " + levelProgress.stripes + "/" + obj.amount;
+    case "combos": return "Combos " + levelProgress.combos + "/" + obj.amount;
+    case "path": {
+      const n = pathBlockersRemaining(board);
+      return "Path " + (n === 0 ? "open" : n + " blocked");
+    }
+    default: return "";
+  }
+}
+
+function updateGoalHud() {
+  if (!goalEl) return;
+  if (!currentLevelCfg || !currentLevelCfg.objectives || currentLevelCfg.objectives.length === 0) {
+    if (goalLabelEl) goalLabelEl.textContent = "Goal";
+    goalEl.textContent = levelTarget;
+    return;
+  }
+  if (goalLabelEl) goalLabelEl.textContent = "Goals";
+  const lines = currentLevelCfg.objectives.map(objectiveHudLine).filter(Boolean);
+  goalEl.innerHTML = lines.join("<br>");
+  goalEl.style.fontSize = lines.length > 2 ? "clamp(10px, 2.8vw, 13px)" : "";
+  goalEl.style.lineHeight = "1.25";
 }
 
 let currentLevel = 1;
-let levelTarget = 0;        // points needed to clear the current level
+let currentLevelCfg = null;
+let levelTarget = 0;
 let hintsEnabled = true;
 let inLevel = false;        // true only while a level is actually being played
 let won = false;            // did the last round end by reaching the target?
@@ -1113,15 +1845,20 @@ function noteActivity() {
 }
 
 function newGame() {
-  board = new Board(WIDTH, HEIGHT, COLOR_COUNT, seed);
+  board = new Board(WIDTH, HEIGHT, COLOR_COUNT, seed, currentLevelCfg?.voidCells);
+  setupLevelFeatures();
+  initLevelProgress();
   selX = selY = -1;
   score = 0;
   movesLeft = levelMoves;
   gameOver = false;
   won = false;
   resolving = false;
+  boardAnimating = false;
+  cascadePromise = null;
   particles = [];
   comboPopup = null;
+  pillowCtx.clearRect(0, 0, pillowCanvas.width, pillowCanvas.height);
   comboBonusUntil = 0;
   comboBonusPct = 0;
   autoFinishing = false;
@@ -1133,12 +1870,14 @@ function newGame() {
   hint = null;
   updateComboBonusHud(performance.now());
   scoreEl.textContent = score;
-  goalEl.textContent = levelTarget;
-  levelEl.textContent = currentLevel;
+  updateGoalHud();
+  const arenaName = ARENA_NAMES[(currentLevelCfg?.arena || 1) - 1];
+  levelEl.textContent = currentLevel + (arenaName ? " · " + arenaName.split(" ")[0] : "");
   movesEl.textContent = movesLeft;
   fxCtx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
   overlay.classList.remove("show");
   render();
+  renderPillowLayer();
 }
 
 function roundRect(px, py, w, h, r) {
@@ -1170,12 +1909,42 @@ function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 
     ctx.shadowColor = "rgba(255,255,255,0.95)";
     ctx.shadowBlur = 24 * glow;
   }
-  const img = IMAGES[c % IMAGES.length];
+  if (isGem(c)) {
+    const size = CELL - GAP;
+    const px = gx * CELL + GAP / 2 + dx;
+    const py = (HEIGHT - 1 - gy) * CELL + GAP / 2 + dy;
+    ctx.fillStyle = "#ff6eb4";
+    ctx.beginPath();
+    ctx.arc(px + size / 2, py + size / 2, size * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    return;
+  }
+  if (isChain(c)) {
+    const img = CHAIN_IMAGES[chainLevel(c) - 1];
+    if (img && img.complete && img.naturalWidth > 0)
+      ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    else {
+      ctx.fillStyle = "#6a5a8a";
+      roundRect(cx - w / 2, cy - h / 2, w, h, 10);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    return;
+  }
+  const bc = baseColor(c);
+  let img;
+  if (isLineH(c)) img = HLINE_IMAGES[bc % HLINE_IMAGES.length];
+  else if (isLineV(c)) img = VLINE_IMAGES[bc % VLINE_IMAGES.length];
+  else img = IMAGES[bc % IMAGES.length];
   if (img && img.complete && img.naturalWidth > 0) {
     ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   } else {
     // Sprite not loaded yet — fall back to a flat swatch so nothing pops blank.
-    ctx.fillStyle = SPARKLE_COLORS[c % SPARKLE_COLORS.length];
+    ctx.fillStyle = SPARKLE_COLORS[bc % SPARKLE_COLORS.length];
     roundRect(cx - w / 2, cy - h / 2, w, h, 10);
     ctx.fill();
   }
@@ -1191,16 +1960,140 @@ function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 
   ctx.globalAlpha = 1;
 }
 
-const sparkleOf = (c) => SPARKLE_COLORS[c % SPARKLE_COLORS.length];
+function sparkleOf(c) {
+  if (isChain(c)) return "#b8b0c8";
+  if (isGem(c)) return "#ff6eb4";
+  const bc = baseColor(c);
+  if (bc < 0) return "#ffffff";
+  return SPARKLE_COLORS[bc % SPARKLE_COLORS.length];
+}
 const clear = () => ctx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
+
+function drawVoidLayer() {
+  if (!board) return;
+  for (let x = 0; x < WIDTH; x++)
+    for (let y = 0; y < HEIGHT; y++)
+      if (isVoidCell(board, x, y)) drawVoidCell(x, y);
+}
+
+function pillowAlpha(layers) {
+  return window.pillowOpacity ? window.pillowOpacity(layers) : (layers >= 3 ? 0.7 : layers === 2 ? 0.5 : 0.2);
+}
+
+function drawPillowToCtx(targetCtx, x, y) {
+  if (!board || !board.pillows || board.pillows[x][y] <= 0) return;
+  const layers = board.pillows[x][y];
+  const size = CELL - GAP;
+  const px = x * CELL + GAP / 2;
+  const py = (HEIGHT - 1 - y) * CELL + GAP / 2;
+  targetCtx.save();
+  targetCtx.globalAlpha = pillowAlpha(layers);
+  if (pillowImg.complete && pillowImg.naturalWidth > 0)
+    targetCtx.drawImage(pillowImg, px, py, size, size);
+  else {
+    targetCtx.fillStyle = "#c9b8f0";
+    roundRect(px, py, size, size, 8);
+    targetCtx.fill();
+  }
+  targetCtx.restore();
+}
+
+function renderPillowLayer() {
+  if (!board) return;
+  pillowCtx.clearRect(0, 0, WIDTH * CELL, HEIGHT * CELL);
+  for (let x = 0; x < WIDTH; x++)
+    for (let y = 0; y < HEIGHT; y++) drawPillowToCtx(pillowCtx, x, y);
+}
+
+function canPlayerMove() {
+  return (
+    inLevel &&
+    !gameOver &&
+    !autoFinishing &&
+    !passCelebrationPending &&
+    !boardAnimating &&
+    movesLeft > 0
+  );
+}
+
+function drawPathCell(x, y) {
+  if (!board || !board.pathCells || !board.pathCells.has(x + "," + y)) return;
+  const size = CELL - GAP;
+  const px = x * CELL + GAP / 2 + size / 2;
+  const py = (HEIGHT - 1 - y) * CELL + GAP / 2 + size / 2;
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = "#7ec8ff";
+  ctx.beginPath();
+  ctx.arc(px, py, size * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawExitCell(x, y) {
+  if (!board || !board.exitCells || !board.exitCells.has(x + "," + y)) return;
+  const size = CELL - GAP;
+  const px = x * CELL + GAP / 2;
+  const py = (HEIGHT - 1 - y) * CELL + GAP / 2;
+  ctx.strokeStyle = "rgba(255, 220, 100, 0.85)";
+  ctx.lineWidth = 2;
+  roundRect(px + 3, py + 3, size - 6, size - 6, 6);
+  ctx.stroke();
+}
+
+function drawUnderlayers(x, y) {
+  drawPathCell(x, y);
+  drawExitCell(x, y);
+}
+
+function drawVoidCell(x, y) {
+  const size = CELL - GAP;
+  const px = x * CELL + GAP / 2;
+  const py = (HEIGHT - 1 - y) * CELL + GAP / 2;
+  ctx.fillStyle = "#14141c";
+  roundRect(px, py, size, size, 8);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  roundRect(px, py, size, size, 8);
+  ctx.stroke();
+}
+
+function drawEmptyCell(x, y) {
+  const size = CELL - GAP;
+  const px = x * CELL + GAP / 2;
+  const py = (HEIGHT - 1 - y) * CELL + GAP / 2;
+  ctx.fillStyle = "#1c1c28";
+  roundRect(px, py, size, size, 8);
+  ctx.fill();
+}
+
+function drawBoardCell(x, y) {
+  if (isVoidCell(board, x, y)) {
+    drawVoidCell(x, y);
+    return;
+  }
+  drawUnderlayers(x, y);
+  const c = board.get(x, y);
+  if (c === EMPTY) {
+    drawEmptyCell(x, y);
+    return;
+  }
+  drawCell(x, y, c);
+}
 
 // Static render of the settled board, including the selection highlight.
 function render() {
   clear();
   for (let x = 0; x < WIDTH; x++) {
     for (let y = 0; y < HEIGHT; y++) {
+      if (board && isVoidCell(board, x, y)) { drawVoidCell(x, y); continue; }
+      drawUnderlayers(x, y);
       const c = board.get(x, y);
-      if (c === EMPTY) continue;
+      if (c === EMPTY) {
+        drawEmptyCell(x, y);
+        continue;
+      }
       const selected = (x === selX && y === selY);
       drawCell(x, y, c, selected ? 1.08 : 1);
       if (selected) {
@@ -1214,6 +2107,7 @@ function render() {
       }
     }
   }
+  renderPillowLayer();
 }
 
 // Idle hint: redraw the settled board with the two suggested tiles pulsing —
@@ -1224,8 +2118,10 @@ function renderHint(now) {
   const scale = 1 + 0.2 * p;                               // up to 20% bigger
   const hintSet = new Set(hint.cells.map((c) => c.x + "," + c.y));
   clear();
+  drawVoidLayer();
   for (let x = 0; x < WIDTH; x++)
     for (let y = 0; y < HEIGHT; y++) {
+      if (isVoidCell(board, x, y)) continue;
       const c = board.get(x, y);
       if (c === EMPTY) continue;
       if (hintSet.has(x + "," + y)) drawCell(x, y, c, scale, 1, 0, 0, 1, 1, p);
@@ -1264,6 +2160,7 @@ function animateJiggle(cells, speed = 1) {
   return animate(Math.max(40, Math.round(260 * speed)), (t) => {
     const wob = Math.sin(t * Math.PI * 3) * (1 - t) * 0.24; // decays to 0
     clear();
+    drawVoidLayer();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
         const c = board.get(x, y);
@@ -1277,13 +2174,14 @@ function animateJiggle(cells, speed = 1) {
 // ---- Sparkles + combo popup ----------------------------------------------
 
 // Burst of little sparks out of every candy in a match (called each clear).
-function spawnSparkles(matched) {
+function spawnSparkles(matched, count = 7) {
+  if (particles.length > 220) particles.length = 180;
   for (const key of matched) {
     const [x, y] = key.split(",").map(Number);
     const cx = x * CELL + CELL / 2;
     const cy = (HEIGHT - 1 - y) * CELL + CELL / 2;
     const base = sparkleOf(board.get(x, y));
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 45 + Math.random() * 130;
       const life = 0.45 + Math.random() * 0.35;
@@ -1332,6 +2230,7 @@ function comboPopupMetrics(combo) {
 }
 
 function showCombo(n) {
+  if (autoFinishing) return;
   comboPopup = { combo: n, text: comboWord(n), start: performance.now() };
 }
 
@@ -1379,11 +2278,11 @@ function drawCenterPopup(now, popup, grow, hold, fade) {
   }
   const s = scale * popup.scaleMul;
   fxCtx.save();
-  fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) / 2);
-  const glowR = (80 + popup.height * 0.55) * s;
+  fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) * 0.2);
+  const glowR = (36 + popup.height * 0.22) * s;
   const bloom = fxCtx.createRadialGradient(0, 0, 0, 0, 0, glowR);
-  bloom.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.10) + ")");
-  bloom.addColorStop(0.45, "rgba(150, 190, 255, " + (alpha * 0.05) + ")");
+  bloom.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.05) + ")");
+  bloom.addColorStop(0.45, "rgba(150, 190, 255, " + (alpha * 0.025) + ")");
   bloom.addColorStop(1, "rgba(150, 190, 255, 0)");
   fxCtx.fillStyle = bloom;
   fxCtx.beginPath();
@@ -1489,14 +2388,35 @@ function updateFx(now, dt) {
   }
 }
 
+// Chains cannot move — quick wiggle when the player tries to drag them.
+function animateIceWiggle(cells) {
+  const list = Array.isArray(cells) ? cells : [cells];
+  const set = new Set(list.map((c) => c.x + "," + c.y));
+  return animate(300, (t) => {
+    const amp = Math.sin(t * Math.PI * 5) * 7 * (1 - t);
+    clear();
+    drawVoidLayer();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        if (isVoidCell(board, x, y)) continue;
+        const c = board.get(x, y);
+        if (c === EMPTY) continue;
+        if (set.has(x + "," + y)) drawCell(x, y, c, 1, 1, amp * 0.7, -amp * 0.5);
+        else drawCell(x, y, c);
+      }
+  });
+}
+
 // Invalid swap: both candies jitter back and forth along the swap axis.
 function animateShake(ax, ay, bx, by) {
   const horizontal = ay === by;
   return animate(360, (t) => {
     const amp = Math.sin(t * Math.PI * 5) * 8 * (1 - t);
     clear();
+    drawVoidLayer();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
+        if (isVoidCell(board, x, y)) continue;
         const c = board.get(x, y);
         if (c === EMPTY) continue;
         const shaken = (x === ax && y === ay) || (x === bx && y === by);
@@ -1514,8 +2434,10 @@ function animateSwap(ax, ay, bx, by, speed = 1) {
   const targets = new Set([ax + "," + ay, bx + "," + by]);
   return animate(Math.max(40, Math.round(140 * speed)), (t) => {
     clear();
+    drawVoidLayer();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
+        if (isVoidCell(board, x, y)) continue;
         const c = board.get(x, y);
         if (c === EMPTY || targets.has(x + "," + y)) continue;
         drawCell(x, y, c);
@@ -1525,55 +2447,182 @@ function animateSwap(ax, ay, bx, by, speed = 1) {
   }, easeOutBack);
 }
 
+function glowHexRgb(glowColor) {
+  if (!glowColor) return null;
+  let hex = glowColor[0] === "#" ? glowColor.slice(1) : glowColor;
+  if (/^[0-9a-fA-F]{3}$/.test(hex))
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return null;
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  };
+}
+
+// Soft colored spark inside the tile box (after a pop).
+function drawCellUnderglow(x, y, intensity, glowColor) {
+  if (intensity <= 0) return;
+  const rgb = glowHexRgb(glowColor);
+  if (!rgb) return;
+  const size = CELL - GAP;
+  const cx = x * CELL + GAP / 2 + size / 2;
+  const cy = (HEIGHT - 1 - y) * CELL + GAP / 2 + size / 2;
+  const r = rgb.r, g = rgb.g, b = rgb.b;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.92);
+  rad.addColorStop(0, "rgba(255, 255, 255, " + (intensity * 0.55) + ")");
+  rad.addColorStop(0.4, "rgba(" + r + "," + g + "," + b + "," + (intensity * 0.5) + ")");
+  rad.addColorStop(1, "rgba(" + r + "," + g + "," + b + ",0)");
+  ctx.fillStyle = rad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.92, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Fast staggered row/column wave — visual only until done; board clears applied at end.
+function animateLineWaveClear(keysOrdered, tileSnap, speed = 1) {
+  const popDur = Math.max(14, Math.round(20 * speed));
+  const stagger = Math.max(4, Math.round(7 * speed));
+  const glowDur = Math.max(24, Math.round(36 * speed));
+
+  const cells = [];
+  for (let i = 0; i < keysOrdered.length; i++) {
+    const key = keysOrdered[i];
+    const c = tileSnap.get(key);
+    if (c === undefined || c === EMPTY) continue;
+    const [x, y] = key.split(",").map(Number);
+    cells.push({
+      x, y, color: c, sparkle: sparkleOf(c),
+      start: i * stagger, sparked: false,
+    });
+  }
+  if (cells.length === 0) {
+    applyWaveClears(keysOrdered, tileSnap);
+    return Promise.resolve();
+  }
+
+  const totalDur = (cells.length - 1) * stagger + popDur + glowDur;
+  const waveCells = new Set(cells.map((c) => c.x + "," + c.y));
+
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    function finish() {
+      applyWaveClears(keysOrdered, tileSnap);
+      resolve();
+    }
+    function frame(now) {
+      try {
+        const elapsed = now - t0;
+        clear();
+        for (let x = 0; x < WIDTH; x++) {
+          for (let y = 0; y < HEIGHT; y++) {
+            const k = x + "," + y;
+            if (waveCells.has(k)) continue;
+            drawBoardCell(x, y);
+          }
+        }
+
+        for (const cell of cells) {
+          const local = elapsed - cell.start;
+          if (local < 0) {
+            drawUnderlayers(cell.x, cell.y);
+            drawCell(cell.x, cell.y, cell.color);
+            continue;
+          }
+          if (!cell.sparked) {
+            cell.sparked = true;
+            spawnSparkles(new Set([cell.x + "," + cell.y]), 2);
+          }
+          if (local < popDur) {
+            const p = easeIn(local / popDur);
+            drawUnderlayers(cell.x, cell.y);
+            drawCell(cell.x, cell.y, cell.color, 1 - p, 1 - p);
+          } else {
+            drawUnderlayers(cell.x, cell.y);
+            drawEmptyCell(cell.x, cell.y);
+            const glowT = local - popDur;
+            if (glowT < glowDur) {
+              const glow = Math.sin((glowT / glowDur) * Math.PI);
+              drawCellUnderglow(cell.x, cell.y, glow, cell.sparkle);
+            }
+          }
+        }
+
+        renderPillowLayer();
+        if (elapsed < totalDur) requestAnimationFrame(frame);
+        else finish();
+      } catch (err) {
+        console.error("line wave animation error", err);
+        finish();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
 // Matched candies shrink and fade out before being cleared.
 function animateClear(matched, speed = 1) {
   return animate(Math.max(40, Math.round(170 * speed)), (t) => {
     clear();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
+        const k = x + "," + y;
+        if (isVoidCell(board, x, y)) {
+          drawVoidCell(x, y);
+          continue;
+        }
+        drawUnderlayers(x, y);
         const c = board.get(x, y);
-        if (c === EMPTY) continue;
-        if (matched.has(x + "," + y)) drawCell(x, y, c, 1 - t, 1 - t);
+        if (c === EMPTY) {
+          drawEmptyCell(x, y);
+          continue;
+        }
+        if (matched.has(k)) drawCell(x, y, c, 1 - t, 1 - t);
         else drawCell(x, y, c);
       }
+    renderPillowLayer();
   }, easeIn);
 }
 
 // Soft light under combo'ed objects: a single smooth fade in then out (no
 // strobing on/off) at a gentle, low opacity.
+// Combo glow on fx only — does not block input or wipe the board / pillows.
 function animateComboPulse(matched, speed = 1) {
-  return animate(Math.max(40, Math.round(650 * speed)), (t) => {
-    const glow = Math.sin(t * Math.PI); // 0 → 1 → 0, one smooth rise and fall
-    clear();
-
-    // Gentle underglow beneath each matched candy.
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
+  const duration = Math.max(40, Math.round(420 * speed));
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const glow = Math.sin(t * Math.PI);
     for (const key of matched) {
       const [x, y] = key.split(",").map(Number);
-      const size = CELL - GAP;
-      // Replicate coordinate math from drawCell to align exactly
-      const cx = x * CELL + GAP / 2 + size / 2;
-      const cy = (HEIGHT - 1 - y) * CELL + GAP / 2 + size / 2;
-
-      const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 1.1);
-      rad.addColorStop(0, "rgba(255, 246, 214, " + (glow * 0.5) + ")");
-      rad.addColorStop(0.6, "rgba(255, 224, 160, " + (glow * 0.22) + ")");
-      rad.addColorStop(1, "rgba(255, 224, 160, 0)");
-      ctx.fillStyle = rad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, size * 1.1, 0, Math.PI * 2);
-      ctx.fill();
+      const sparkle = sparkleOf(board.get(x, y));
+      drawCellUnderglowFx(x, y, glow * 0.55, sparkle);
     }
-    ctx.restore();
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 
-    for (let x = 0; x < WIDTH; x++)
-      for (let y = 0; y < HEIGHT; y++) {
-        const c = board.get(x, y);
-        if (c === EMPTY) continue;
-        drawCell(x, y, c, 1);
-      }
-  });
+function drawCellUnderglowFx(x, y, intensity, glowColor) {
+  const rgb = glowHexRgb(glowColor);
+  if (!rgb || intensity <= 0) return;
+  const size = CELL - GAP;
+  const cx = x * CELL + GAP / 2 + size / 2;
+  const cy = (HEIGHT - 1 - y) * CELL + GAP / 2 + size / 2;
+  fxCtx.save();
+  fxCtx.globalCompositeOperation = "lighter";
+  const rad = fxCtx.createRadialGradient(cx, cy, 0, cx, cy, size * 1.1);
+  rad.addColorStop(0, "rgba(255, 246, 214, " + (intensity * 0.45) + ")");
+  rad.addColorStop(0.6, "rgba(" + rgb.r + "," + rgb.g + "," + rgb.b + "," + (intensity * 0.3) + ")");
+  rad.addColorStop(1, "rgba(" + rgb.r + "," + rgb.g + "," + rgb.b + ",0)");
+  fxCtx.fillStyle = rad;
+  fxCtx.beginPath();
+  fxCtx.arc(cx, cy, size * 1.1, 0, Math.PI * 2);
+  fxCtx.fill();
+  fxCtx.restore();
 }
 
 // Candies above cleared gaps fall down, and fresh candies drop in from the top.
@@ -1586,59 +2635,187 @@ function animateFall(moves, spawns, speed = 1) {
     clear();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
-        const c = board.get(x, y);
-        if (c === EMPTY || targets.has(x + "," + y)) continue;
-        drawCell(x, y, c);
+        if (targets.has(x + "," + y)) continue;
+        drawBoardCell(x, y);
       }
     for (const it of items)
       drawCell(it.x, it.fromY + (it.toY - it.fromY) * t, it.color);
+    renderPillowLayer();
   }, easeIn);
 }
 
+// Goal-met auto-play: resolve entire swap cascade instantly (no animation waits).
+function resolveCascadesInstant() {
+  resolving = true;
+  boardAnimating = true;
+  let combo = 0;
+  try {
+    while (true) {
+      const matched = findMatches(board.grid, WIDTH, HEIGHT, board.voidCells);
+      if (matched.size === 0) break;
+      combo++;
+      if (combo >= 2 && levelProgress) levelProgress.combos++;
+      updateLastMatchCenter(matched);
+      trackCollectFromMatch(matched);
+
+      const triggers = [];
+      for (const key of matched) {
+        const [x, y] = key.split(",").map(Number);
+        const c = board.get(x, y);
+        if (isLineH(c)) triggers.push({ x, y, horizontal: true });
+        else if (isLineV(c)) triggers.push({ x, y, horizontal: false });
+      }
+      const waveOrdered =
+        triggers.length > 0
+          ? collectLineWaveCells(triggers, board.grid, WIDTH, HEIGHT, board.voidCells)
+          : [];
+      const waveSet = new Set(waveOrdered);
+      const waveSnap = new Map();
+      for (const k of waveOrdered) {
+        const [x, y] = k.split(",").map(Number);
+        waveSnap.set(k, board.get(x, y));
+      }
+      const allClear = new Set(matched);
+      for (const k of waveOrdered) allClear.add(k);
+
+      score += awardCascadeScore(allClear.size, combo);
+      scoreEl.textContent = score;
+
+      const matchOnly = new Set([...matched].filter((k) => !waveSet.has(k)));
+      damagePillowsOnCells(board, matchOnly);
+      if (matchOnly.size > 0) board.clearMatches(matchOnly);
+      if (waveOrdered.length > 0) {
+        if (levelProgress) levelProgress.stripes += triggers.length;
+        damagePillowsOnCells(board, waveSet);
+        applyWaveClears(waveOrdered, waveSnap);
+      }
+
+      damagePillowsOnCells(board, allClear);
+      board.damageAdjacentChains(allClear);
+      board.applyGravityMapped();
+      board.refillMapped();
+      collectGemsAtExits();
+    }
+  } catch (err) {
+    console.error("instant cascade error", err);
+  } finally {
+    boardAnimating = false;
+    render();
+    renderPillowLayer();
+    if (!board.hasValidMove()) {
+      board.reshuffle();
+      setupLevelFeatures();
+      render();
+      renderPillowLayer();
+    }
+    updateGoalHud();
+    resolving = false;
+    lastActivity = performance.now();
+    checkLevelEnd();
+  }
+}
+
 async function resolveCascades(fast) {
-  const spd = fast ? 0.48 : 1;
+  if (fast) {
+    resolveCascadesInstant();
+    return;
+  }
+  const spd = 1;
+  const waveSpd = 0.48;
   resolving = true;
   let combo = 0;
+  try {
   while (true) {
-    const matched = findMatches(board.grid, WIDTH, HEIGHT);
+    const matched = findMatches(board.grid, WIDTH, HEIGHT, board.voidCells);
     if (matched.size === 0) break;
     combo++;
+    if (combo >= 2 && levelProgress) levelProgress.combos++;
     updateLastMatchCenter(matched);
-    score += awardCascadeScore(matched.size, combo);
+    trackCollectFromMatch(matched);
+
+    const triggers = [];
+    for (const key of matched) {
+      const [x, y] = key.split(",").map(Number);
+      const c = board.get(x, y);
+      if (isLineH(c)) triggers.push({ x, y, horizontal: true });
+      else if (isLineV(c)) triggers.push({ x, y, horizontal: false });
+    }
+    const waveOrdered =
+      triggers.length > 0
+        ? collectLineWaveCells(triggers, board.grid, WIDTH, HEIGHT, board.voidCells)
+        : [];
+    const waveSet = new Set(waveOrdered);
+    const waveSnap = new Map();
+    for (const k of waveOrdered) {
+      const [x, y] = k.split(",").map(Number);
+      waveSnap.set(k, board.get(x, y));
+    }
+    const allClear = new Set(matched);
+    for (const k of waveOrdered) allClear.add(k);
+
+    score += awardCascadeScore(allClear.size, combo);
     scoreEl.textContent = score;
 
-    spawnSparkles(matched);          // spark on every cleared match
     if (combo >= 2) {
-      showCombo(combo); // Double, Triple, ... for chained combos
-      await animateComboPulse(matched, spd);
+      showCombo(combo);
+      animateComboPulse(matched, spd);
     }
 
-    await animateClear(matched, spd);
-    board.clearMatches(matched);
+    boardAnimating = true;
+    const matchOnly = new Set([...matched].filter((k) => !waveSet.has(k)));
+    damagePillowsOnCells(board, matchOnly);
+    renderPillowLayer();
+    if (matchOnly.size > 0) {
+      spawnSparkles(matchOnly);
+      await animateClear(matchOnly, spd);
+      board.clearMatches(matchOnly);
+    }
+    if (waveOrdered.length > 0) {
+      if (levelProgress) levelProgress.stripes += triggers.length;
+      damagePillowsOnCells(board, waveSet);
+      renderPillowLayer();
+      await animateLineWaveClear(waveOrdered, waveSnap, waveSpd);
+      renderPillowLayer();
+    }
+
+    damagePillowsOnCells(board, allClear);
+    renderPillowLayer();
+    board.damageAdjacentChains(allClear);
     const moves = board.applyGravityMapped();
     const spawns = board.refillMapped();
     await animateFall(moves, spawns, spd);
+    collectGemsAtExits();
 
-    // Jiggle every candy that just landed (moved or dropped in).
     const landed = [
       ...moves.map((m) => ({ x: m.x, y: m.toY })),
       ...spawns.map((s) => ({ x: s.x, y: s.y })),
     ];
     await animateJiggle(landed, spd);
+    boardAnimating = false;
   }
-
-  render();
-  if (!board.hasValidMove()) { board.reshuffle(); render(); }
-  resolving = false;
-  lastActivity = performance.now(); // start the idle countdown after a settle
-  checkLevelEnd();
+  } catch (err) {
+    console.error("cascade error", err);
+  } finally {
+    boardAnimating = false;
+    render();
+    renderPillowLayer();
+    if (!board.hasValidMove()) {
+      board.reshuffle();
+      setupLevelFeatures();
+      render();
+      renderPillowLayer();
+    }
+    updateGoalHud();
+    resolving = false;
+    lastActivity = performance.now();
+    checkLevelEnd();
+  }
 }
 
-const AUTO_MOVE_SPEED = 0.48;
-const AUTO_MOVE_GAP_MS = 90;
+const AUTO_MOVE_GAP_MS = 18;
 
 function autoMoveDelay() {
-  return new Promise((resolve) => setTimeout(resolve, AUTO_MOVE_GAP_MS));
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 // Goal reached: show passing-level art, then auto-play leftover moves / win UI.
@@ -1658,7 +2835,7 @@ async function autoFinishRemainingMoves() {
   hint = null;
   const autoCoinPerMove = autoMoveCoinBonus(currentLevel);
 
-  while (movesLeft > 0 && score >= levelTarget && !gameOver) {
+  while (movesLeft > 0 && levelGoalMet() && !gameOver) {
     let cells = board.findHint();
     if (!cells) {
       board.reshuffle();
@@ -1668,25 +2845,24 @@ async function autoFinishRemainingMoves() {
       if (!cells) break;
     }
     const ax = cells[0].x, ay = cells[0].y, bx = cells[1].x, by = cells[1].y;
+    if (isImmovable(board.get(ax, ay)) || isImmovable(board.get(bx, by))) break;
     if (!board.trySwap(ax, ay, bx, by)) break;
 
     movesLeft--;
     movesEl.textContent = movesLeft;
-    resolving = true;
-    await animateSwap(ax, ay, bx, by, AUTO_MOVE_SPEED);
-    await resolveCascades(true);
+    resolveCascadesInstant();
     addCoins(autoCoinPerMove);
     await autoMoveDelay();
   }
 
   autoFinishing = false;
-  if (!gameOver && score >= levelTarget) winLevel();
+  if (!gameOver && levelGoalMet()) winLevel();
 }
 
 // Win or lose once a cascade settles (and from tick when idle).
 function checkLevelEnd() {
-  if (gameOver || resolving || passCelebrationPending) return;
-  if (score >= levelTarget) {
+  if (cascadePromise || !canPlayerMove()) return;
+  if (levelGoalMet()) {
     if (autoFinishing) return;
     if (!levelGoalCelebrated) {
       levelGoalCelebrated = true;
@@ -1703,10 +2879,16 @@ function failOutOfMoves() {
   won = false;
   loseHeart();
   renderHearts();
-  ovBig.textContent = "Out of moves!  " + score + " / " + levelTarget;
-  ovSub.textContent = hearts > 0
+  const lifeMsg = hearts > 0
     ? "Lost a life — tap to retry"
     : "Out of lives — tap for the menu (refills in " + fmtTime(msToNextHeart()) + ")";
+  if (currentLevelCfg && currentLevelCfg.objectives && currentLevelCfg.objectives.length > 0) {
+    ovBig.textContent = "Out of moves!";
+    ovSub.textContent = currentLevelCfg.objectives.map(objectiveHudLine).join(" · ") + " — " + lifeMsg;
+  } else {
+    ovBig.textContent = "Out of moves!  " + score + " / " + levelTarget;
+    ovSub.textContent = lifeMsg;
+  }
   overlay.classList.add("show");
 }
 
@@ -1716,6 +2898,7 @@ function pixelToCell(clientX, clientY) {
   const gyFromTop = Math.floor(p.y / CELL);
   const gy = HEIGHT - 1 - gyFromTop;
   if (gx < 0 || gx >= WIDTH || gy < 0 || gy >= HEIGHT) return null;
+  if (board && isVoidCell(board, gx, gy)) return null;
   return { gx, gy };
 }
 
@@ -1759,8 +2942,10 @@ function renderDrag() {
   }
 
   clear();
+  drawVoidLayer();
   for (let x = 0; x < WIDTH; x++)
     for (let y = 0; y < HEIGHT; y++) {
+      if (isVoidCell(board, x, y)) continue;
       const c = board.get(x, y);
       if (c === EMPTY) continue;
       if (x === dragFromX && y === dragFromY) continue; // grabbed: drawn last, on top
@@ -1785,25 +2970,45 @@ function finishDrag() {
   if (tx < 0 || tx >= WIDTH || ty < 0 || ty >= HEIGHT) { render(); return; }
 
   if (movesLeft <= 0) { render(); return; }
+  if (cascadePromise || !canPlayerMove()) { render(); return; }
 
-  resolving = true;
   if (board.trySwap(fromX, fromY, tx, ty)) {
     movesLeft--;
     movesEl.textContent = movesLeft;
-    animateSwap(fromX, fromY, tx, ty).then(resolveCascades);
+    boardAnimating = true;
+    cascadePromise = animateSwap(fromX, fromY, tx, ty)
+      .then(() => {
+        boardAnimating = false;
+        return resolveCascades();
+      })
+      .finally(() => { cascadePromise = null; });
   } else {
-    animateShake(fromX, fromY, tx, ty).then(() => { resolving = false; render(); });
+    const wiggle = [];
+    if (isImmovable(board.get(fromX, fromY))) wiggle.push({ x: fromX, y: fromY });
+    if (isImmovable(board.get(tx, ty))) wiggle.push({ x: tx, ty });
+    const done = () => { render(); renderPillowLayer(); };
+    if (wiggle.length) animateIceWiggle(wiggle).then(done);
+    else animateShake(fromX, fromY, tx, ty).then(done);
   }
 }
 
 canvas.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 && e.pointerType === "mouse") return;
-  if (gameOver || resolving || autoFinishing || passCelebrationPending || movesLeft <= 0) return;
+  if (cascadePromise || !canPlayerMove()) return;
   const cell = pixelToCell(e.clientX, e.clientY);
   if (!cell) return;
   e.preventDefault();
-  canvas.setPointerCapture(e.pointerId);
   noteActivity();
+  if (isImmovable(board.get(cell.gx, cell.gy))) {
+    boardAnimating = true;
+    animateIceWiggle({ x: cell.gx, y: cell.gy }).then(() => {
+      boardAnimating = false;
+      render();
+      renderPillowLayer();
+    });
+    return;
+  }
+  canvas.setPointerCapture(e.pointerId);
   dragging = true;
   dragFromX = cell.gx; dragFromY = cell.gy;
   dragStart = localPos(e); dragCur = { ...dragStart };
@@ -1853,11 +3058,12 @@ function tick(ts) {
   updateComboBonusHud(ts);
   updateFx(ts, dt);
 
-  if (!gameOver && !resolving && !passCelebrationPending) checkLevelEnd();
+  if (inLevel && board) renderPillowLayer();
+  if (!gameOver && !boardAnimating && !cascadePromise && !passCelebrationPending) checkLevelEnd();
 
   // Idle hint: after HINT_IDLE_MS with no input, pulse a valid move. While idle
   // the board is otherwise static, so the hint owns the per-frame redraw here.
-  if (hintsEnabled && !gameOver && !resolving && !autoFinishing && !passCelebrationPending && !dragging) {
+  if (hintsEnabled && !gameOver && !boardAnimating && !cascadePromise && !autoFinishing && !passCelebrationPending && !dragging) {
     if (!hint && ts - lastActivity > HINT_IDLE_MS) {
       const cells = board.findHint();
       if (cells) hint = { cells, start: ts };
@@ -1977,8 +3183,57 @@ mobileSplashMq.addEventListener("change", applySplashAssets);
 const menuShell = document.getElementById("menu-shell");
 const levelMenu = document.getElementById("level-menu");
 const gameUi = document.getElementById("game-ui");
-const levelButtons = Array.from(document.querySelectorAll(".level-btn"));
-const heartsBar = document.getElementById("hearts-bar");
+const arenasScroll = document.getElementById("arenas-scroll");
+let levelButtons = [];
+
+function buildLevelMenu() {
+  if (!arenasScroll) return;
+  arenasScroll.innerHTML = "";
+  levelButtons = [];
+  for (let arena = 1; arena <= 5; arena++) {
+    const panel = document.createElement("div");
+    panel.className = "arena-panel";
+    panel.dataset.arena = String(arena);
+
+    const header = document.createElement("div");
+    header.className = "arena-header";
+    const title = document.createElement("p");
+    title.className = "arena-title";
+    title.textContent = "Arena " + arena;
+    const name = document.createElement("h2");
+    name.className = "arena-name";
+    name.textContent = ARENA_NAMES[arena - 1];
+    header.appendChild(title);
+    header.appendChild(name);
+
+    const status = document.createElement("div");
+    status.className = "arena-status";
+
+    const grid = document.createElement("div");
+    grid.className = "arena-level-grid";
+
+    for (let slot = 0; slot < 20; slot++) {
+      const n = (arena - 1) * 20 + slot + 1;
+      const btn = document.createElement("div");
+      btn.className = "level-btn" + (isLevelUnlocked(n) ? " active" : " locked");
+      btn.id = "btn-level-" + n;
+      btn.textContent = String(n);
+      grid.appendChild(btn);
+      levelButtons.push(btn);
+      btn.addEventListener("click", () => {
+        regenHearts();
+        if (isLevelUnlocked(n) && hearts > 0) startLevel(n);
+        else renderHearts();
+      });
+    }
+
+    panel.appendChild(header);
+    panel.appendChild(status);
+    panel.appendChild(grid);
+    arenasScroll.appendChild(panel);
+  }
+}
+buildLevelMenu();
 const playHearts = document.getElementById("play-hearts");
 const menuBtn = document.getElementById("menu-btn");
 
@@ -1995,22 +3250,28 @@ function renderHearts() {
   const regen = hearts < MAX_HEARTS
     ? '<span class="regen">next in ' + fmtTime(msToNextHeart()) + "</span>"
     : "";
-  heartsBar.innerHTML = html + regen +
+  const statusHtml = html + regen +
     '<span class="menu-coins">' + coinsDisplayHtml() + "</span>";
+  document.querySelectorAll(".arena-status").forEach((el) => { el.innerHTML = statusHtml; });
   playHearts.innerHTML = html;
   const playCoins = document.getElementById("play-coins");
   if (playCoins) playCoins.innerHTML = coinsDisplayHtml();
 }
 
-// Paint the menu so levels up to `unlockedLevel` are playable and the rest read
-// as locked. Called whenever the menu is shown.
+// Paint the menu: sequential progress + first level of each arena always open.
 function refreshMenu() {
   levelButtons.forEach((btn, i) => {
-    const unlocked = (i + 1) <= unlockedLevel;
+    const unlocked = isLevelUnlocked(i + 1);
     btn.classList.toggle("active", unlocked);
     btn.classList.toggle("locked", !unlocked);
   });
   renderHearts();
+  if (arenasScroll) {
+    const panel = arenasScroll.querySelector(
+      '.arena-panel[data-arena="' + (Math.ceil(unlockedLevel / 20) || 1) + '"]'
+    );
+    if (panel) panel.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }
 }
 
 // Begin (or restart) a level: difficulty, grid size, fresh seed, board. Costs
@@ -2024,9 +3285,11 @@ function startLevel(level) {
 
   const cfg = levelConfig(level);
   currentLevel = level;
-  WIDTH = HEIGHT = cfg.grid;   // the board grows with the level
+  currentLevelCfg = cfg;
+  WIDTH = cfg.gridW;
+  HEIGHT = cfg.gridH;
   resizeBoard();
-  levelTarget = cfg.target;
+  levelTarget = cfg.target || 0;
   levelMoves = cfg.moves;
   hintsEnabled = cfg.hints;
   seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -2048,14 +3311,6 @@ function returnToMenu() {
   menuShell.classList.add("show");
   levelMenu.style.display = "grid";
 }
-
-levelButtons.forEach((btn, i) => {
-  btn.addEventListener("click", () => {
-    regenHearts();
-    if ((i + 1) <= unlockedLevel && hearts > 0) startLevel(i + 1);
-    else renderHearts();
-  });
-});
 
 menuBtn.addEventListener("click", returnToMenu);
 
@@ -2093,6 +3348,13 @@ setTimeout(() => {
 
 // One render loop for the whole app; it no-ops until a level is in progress.
 requestAnimationFrame(tick);
+
+window.MAX_LEVEL = MAX_LEVEL;
+window.distributeChains = distributeChains;
+window.chainPlacementForArena = chainPlacementForArena;
+window.chainPlacementForArena2 = chainPlacementForArena2;
+window.buildVoidCells = buildVoidCells;
+LEVEL_DEFINITIONS = window.buildAllLevels();
 
 </script>
 </body>
