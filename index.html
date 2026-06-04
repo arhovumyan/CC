@@ -1686,6 +1686,42 @@ function canvasCssSize() {
 // the browser does not upscale a low-resolution canvas on large screens.
 function resizeBoard() {
   const dpr = renderDpr();
+  // Update the layout to the current grid FIRST, so the canvas is measured with
+  // the right aspect ratio. Setting these after measuring would size the backing
+  // bitmap and render scale against the previous level's (possibly different)
+  // aspect ratio — which left sprites off-center and bled a partial column in on
+  // the right whenever the grid was non-square.
+  const gridOverlay = document.getElementById("grid-overlay");
+  if (gridOverlay) {
+    gridOverlay.style.setProperty("--cols", WIDTH);
+    gridOverlay.style.setProperty("--rows", HEIGHT);
+  }
+  const wrap = document.getElementById("wrap");
+  if (wrap) {
+    wrap.style.aspectRatio = WIDTH + " / " + HEIGHT;
+    // Size the board box explicitly to the largest WIDTH/HEIGHT-aspect rectangle
+    // that fits the available area. Relying on CSS `width` + `max-height` let the
+    // box become non-square when vertical space was tight (max-height clamped the
+    // height but width stayed put), which rendered the board letterboxed and
+    // top-left anchored while the grid overlay used the full width — so sprites
+    // drifted left, accumulating per column. Computing both dimensions here keeps
+    // the canvas at the exact grid aspect, so the draw scale is uniform and the
+    // overlay boxes line up.
+    const area = document.getElementById("board-area");
+    if (area && area.clientWidth > 0 && area.clientHeight > 0) {
+      const ratio = WIDTH / HEIGHT;
+      let w = area.clientWidth;
+      let h = w / ratio;
+      if (h > area.clientHeight) {
+        h = area.clientHeight;
+        w = h * ratio;
+      }
+      wrap.style.width = w + "px";
+      wrap.style.height = h + "px";
+    }
+  }
+  // canvasCssSize() reads getBoundingClientRect(), which forces a synchronous
+  // reflow, so the measurement reflects the size set just above.
   const size = canvasCssSize();
   boardRenderScale = Math.min(size.width / size.logicalW, size.height / size.logicalH);
   canvas.width = Math.ceil(size.width * dpr);
@@ -1696,13 +1732,6 @@ function resizeBoard() {
   fx.height = canvas.height;
   fxCtx.setTransform(boardRenderScale * dpr, 0, 0, boardRenderScale * dpr, 0, 0);
   setCanvasQuality(fxCtx);
-  const gridOverlay = document.getElementById("grid-overlay");
-  if (gridOverlay) {
-    gridOverlay.style.setProperty("--cols", WIDTH);
-    gridOverlay.style.setProperty("--rows", HEIGHT);
-  }
-  const wrap = document.getElementById("wrap");
-  if (wrap) wrap.style.aspectRatio = WIDTH + " / " + HEIGHT;
 }
 resizeBoard();
 
