@@ -1173,6 +1173,10 @@ let WIDTH = 8, HEIGHT = 8;
 const COLOR_COUNT = 5;
 const CELL = 56;
 const GAP = 4;
+const CELL_DRAW_SIZE = CELL - GAP;
+const SPRITE_INSET = 5;
+const SPRITE_SIZE = CELL_DRAW_SIZE - SPRITE_INSET * 2;
+const SPRITE_MAX_SIZE = CELL_DRAW_SIZE - 2;
 
 // Each "color" is now an image. Index order is fixed: the board stores these
 // indices, IMAGE_FILES[i] is the sprite drawn for tile i, and SPARKLE_COLORS[i]
@@ -1743,7 +1747,7 @@ const HINT_PULSES = 2;       // grow/shrink cycles packed into the duration
 
 // ---- Levels (100 levels, 5 arenas × 20) -----------------------------------
 const MAX_LEVEL = 100;
-const ARENA_NAMES = ["Sweet Start", "Chain Lane", "Tight Twist", "Combo Canyon", "Master Mix"];
+const ARENA_NAMES = ["Sweet Start", "Idol Lane", "Tight Twist", "Combo Canyon", "Master Mix"];
 // First level of each arena is always playable.
 const ARENA_ENTRY_LEVELS = [1, 21, 41, 61, 81];
 
@@ -3624,8 +3628,11 @@ requestAnimationFrame(tick);
 
 window.MAX_LEVEL = MAX_LEVEL;
 window.distributeChains = distributeChains;
+window.distributeIdols = distributeIdols;
 window.chainPlacementForArena = chainPlacementForArena;
 window.chainPlacementForArena2 = chainPlacementForArena2;
+window.idolPlacementForArena = chainPlacementForArena;
+window.idolPlacementForArena2 = chainPlacementForArena2;
 window.buildVoidCells = buildVoidCells;
 LEVEL_DEFINITIONS = window.buildAllLevels();
 
