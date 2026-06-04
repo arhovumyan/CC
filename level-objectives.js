@@ -84,7 +84,7 @@
   function assignLevelDefinition(n, arena, slot, p, finale, w, h, voidCells, open) {
     const rng = { next: (m) => ((n * 7919 + slot * 997 + arena * 101) % m) };
     const objectives = [];
-    let chains = { c1: 0, c2: 0, c3: 0 };
+    let chains = { c1: 0, c2: 0, c3: 0, c4: 0 };
     let chainPlacement = null;
     let pillows = [];
     let drops = null;
@@ -126,16 +126,16 @@
       chainPlacement = G.chainPlacementForArena(2, slot, finale);
 
       if (slot <= 5) {
-        levelType = "chains";
-        objectives.push({ type: "chains" });
+        levelType = "idols";
+        objectives.push({ type: "idols" });
       } else if (slot <= 10) {
         levelType = "pillows";
         objectives.push({ type: "pillows" });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         pillows = generatePillowLayout(w, h, 5 + Math.floor(p * 8), "corners", voidCells, rng);
       } else if (slot <= 15) {
         levelType = "order";
-        objectives.push({ type: "chains", amount: chainTotal });
+        objectives.push({ type: "idols", amount: chainTotal });
         const col = slot % 5;
         objectives.push({
           type: "collect",
@@ -145,12 +145,12 @@
         });
       } else if (slot < 20) {
         levelType = "order";
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "stripes", amount: 2 + Math.floor(p * 3) });
       } else {
         levelType = "mixed";
         objectives.push({ type: "pillows" });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "combos", amount: 3 });
         pillows = generatePillowLayout(w, h, 12, "bottom", voidCells, rng);
       }
@@ -164,26 +164,26 @@
       chains = G.distributeChains(Math.max(10, chainTotal), arena, finale, p);
 
       if (slot <= 4) {
-        levelType = "chains";
-        objectives.push({ type: "chains" });
+        levelType = "idols";
+        objectives.push({ type: "idols" });
       } else if (slot <= 8) {
-        levelType = "chains";
-        objectives.push({ type: "chains" });
+        levelType = "idols";
+        objectives.push({ type: "idols" });
         const dropN = 1 + Math.floor(p * 2);
         objectives.push({ type: "drops", amount: dropN });
         drops = { count: dropN, exits: generateExitCells(w, h, voidCells, dropN + 1, rng) };
       } else if (slot <= 12) {
         levelType = "mixed";
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "stripes", amount: 2 + Math.floor(p * 2) });
       } else if (slot <= 16) {
         levelType = "path";
         path = { cells: generatePathCells(w, h, voidCells), block: 0.5 + p * 0.25 };
         objectives.push({ type: "path" });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
       } else if (slot < 20) {
         levelType = "mixed";
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "combos", amount: 2 + Math.floor(p * 2) });
         const col = slot % 5;
         objectives.push({
@@ -194,7 +194,7 @@
         });
       } else {
         levelType = "mixed";
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "drops", amount: 3 });
         objectives.push({ type: "combos", amount: 3 });
         drops = { count: 3, exits: generateExitCells(w, h, voidCells, 4, rng) };
@@ -211,12 +211,12 @@
       if (slot <= 5) {
         levelType = "mixed";
         objectives.push({ type: "pillows" });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         pillows = generatePillowLayout(w, h, 8 + Math.floor(p * 6), "corners", voidCells, rng);
       } else if (slot <= 10) {
         levelType = "mixed";
         objectives.push({ type: "drops", amount: 2 + Math.floor(p * 2) });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         drops = { count: 2 + Math.floor(p * 2), exits: generateExitCells(w, h, voidCells, 4, rng) };
       } else if (slot <= 15) {
         levelType = "order";
@@ -226,7 +226,7 @@
           amount: 30 + Math.floor(p * 18),
           label: COLOR_NAMES[rng.next(5)],
         });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "combos", amount: 2 + Math.floor(p * 2) });
       } else if (slot < 20) {
         levelType = "path";
@@ -238,7 +238,7 @@
         levelType = "mixed";
         objectives.push({ type: "pillows" });
         objectives.push({ type: "drops", amount: 3 });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "combos", amount: 4 });
         pillows = generatePillowLayout(w, h, 10, "corners", voidCells, rng);
         drops = { count: 3, exits: generateExitCells(w, h, voidCells, 4, rng) };
@@ -255,23 +255,23 @@
       if (slot <= 4) {
         levelType = "mixed";
         objectives.push({ type: "score", target: Math.round(5000 + p * 3000) });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
       } else if (slot <= 9) {
         levelType = "mixed";
         objectives.push({ type: "pillows" });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "stripes", amount: 3 + Math.floor(p * 2) });
         pillows = generatePillowLayout(w, h, 10 + Math.floor(p * 4), "spread", voidCells, rng);
       } else if (slot <= 14) {
         levelType = "mixed";
         objectives.push({ type: "drops", amount: 3 + Math.floor(p * 2) });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "combos", amount: 3 + Math.floor(p * 2) });
         drops = { count: 3, exits: generateExitCells(w, h, voidCells, 5, rng) };
       } else if (slot < 20) {
         levelType = "mixed";
         objectives.push({ type: "path" });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({
           type: "collect",
           color: rng.next(5),
@@ -284,7 +284,7 @@
         objectives.push({ type: "score", target: Math.round(9000) });
         objectives.push({ type: "pillows" });
         objectives.push({ type: "drops", amount: 4 });
-        objectives.push({ type: "chains" });
+        objectives.push({ type: "idols" });
         objectives.push({ type: "combos", amount: 5 });
         objectives.push({ type: "stripes", amount: 4 });
         pillows = generatePillowLayout(w, h, 14, "spread", voidCells, rng);
@@ -306,7 +306,9 @@
       objectives,
       levelType,
       chains,
+      idols: chains,
       chainPlacement,
+      idolPlacement: chainPlacement,
       pillows,
       drops,
       path,
@@ -320,9 +322,19 @@
     for (const obj of cfg.objectives) {
       if (obj.type === "score") moves = Math.max(moves, Math.ceil(obj.target / 42) + 4);
       if (obj.type === "pillows") moves += 4 + Math.floor((cfg.pillows?.length || 6) * 0.6);
-      if (obj.type === "chains") {
-        const t = (cfg.chains.c1 || 0) + (cfg.chains.c2 || 0) + (cfg.chains.c3 || 0);
-        moves += Math.ceil(t * 1.2) + 3;
+      if (obj.type === "idols") {
+        const idols = cfg.idols || cfg.chains || {};
+        const t =
+          (idols.c1 || 0) +
+          (idols.c2 || 0) +
+          (idols.c3 || 0) +
+          (idols.c4 || 0);
+        const weighted =
+          (idols.c1 || 0) +
+          (idols.c2 || 0) * 1.35 +
+          (idols.c3 || 0) * 1.75 +
+          (idols.c4 || 0) * 2.35;
+        moves += Math.ceil(Math.max(t * 1.05, weighted)) + 3;
       }
       if (obj.type === "drops") moves += 5 + (obj.amount || 1) * 4;
       if (obj.type === "collect") moves += 4 + Math.ceil((obj.amount || 10) / 8);

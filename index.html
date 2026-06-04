@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<link rel="preload" as="image" href="logobg.png" media="(min-width: 769px)" fetchpriority="high" />
+<link rel="preload" as="image" href="mobileLogobg.png" media="(max-width: 768px)" fetchpriority="high" />
+<link rel="preload" as="image" href="loader.png" media="(min-width: 769px)" />
+<link rel="preload" as="image" href="MobileLoader.png" media="(max-width: 768px)" />
 <title>Match Duel — match-3 prototype</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
@@ -227,7 +231,8 @@
     position: relative;
     --board-size: min(94vw, calc(100dvh - 10.5rem), 100%);
     width: var(--board-size);
-    height: var(--board-size);
+    height: auto;
+    aspect-ratio: 1 / 1;
     max-width: 100%;
     max-height: 100%;
     flex-shrink: 1;
@@ -239,6 +244,7 @@
     display: block;
     width: 100%;
     height: 100%;
+    image-rendering: auto;
     touch-action: none;
   }
   /* Faint cell separators ("boxes") drawn over the board. --cols/--rows are set
@@ -294,6 +300,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    image-rendering: auto;
     display: none;
   }
   @media (max-width: 768px) {
@@ -376,6 +383,7 @@
     width: 100%;
     height: auto;
     display: block;
+    image-rendering: auto;
     pointer-events: none;
   }
   #level-pass .level-pass-actions {
@@ -402,6 +410,7 @@
     width: 100%;
     height: auto;
     display: block;
+    image-rendering: auto;
   }
   #btn-next-level.pulsing img {
     animation: level-pass-pulse 0.55s ease-in-out infinite;
@@ -436,7 +445,7 @@
     gap: clamp(8px, 2vw, 14px);
     max-width: 100%;
     max-height: 100%;
-    --arena-size: min(63vw, 61dvh, calc(0.7 * (100dvh - 20px)));
+    --arena-size: min(58vw, 56dvh, calc(0.65 * (100dvh - 20px)));
   }
   .arena-nav {
     flex-shrink: 0;
@@ -561,8 +570,8 @@
   .arena-theme-5 .arena-name { color: #ffe0e8; }
   .arena-header {
     text-align: center;
-    margin-bottom: clamp(8px, 1.8vh, 14px);
-    padding-bottom: clamp(8px, 1.5vh, 12px);
+    margin-bottom: clamp(4px, 1vh, 10px);
+    padding-bottom: clamp(4px, 1vh, 8px);
     border-bottom: 2px solid rgba(255, 255, 255, 0.12);
     flex-shrink: 0;
   }
@@ -591,24 +600,27 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     grid-template-rows: repeat(4, 1fr);
-    gap: clamp(6px, 1.6vmin, 12px);
-    flex: 1 1 auto;
+    gap: clamp(4px, 1vmin, 8px);
+    flex: 1 1 0;
     min-height: 0;
     width: 100%;
-    aspect-ratio: 5 / 4;
-    max-height: 100%;
+    height: 100%;
+    align-items: stretch;
+    justify-items: stretch;
+    overflow: hidden;
   }
   .level-btn {
     width: 100%;
-    aspect-ratio: 1;
+    height: 100%;
+    margin: 0;
     min-height: 0;
     min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: rgba(20, 18, 32, 0.65);
-    border-radius: clamp(8px, 2vmin, 14px);
-    font-size: clamp(15px, 3.8vmin, 26px);
+    border-radius: clamp(10px, 2.2vmin, 16px);
+    font-size: clamp(13px, 3vmin, 22px);
     font-weight: 800;
     color: #555;
     border: 2px solid rgba(0, 0, 0, 0.25);
@@ -626,7 +638,7 @@
   }
   .level-btn.active:hover {
     background: #ff6670;
-    transform: scale(1.05);
+    filter: brightness(1.08);
   }
   .level-btn.active:active {
     transform: scale(0.95);
@@ -670,16 +682,31 @@
   }
   #menu-btn:hover { background: #353543; color: #fff; }
 
+  @media (max-width: 768px) {
+    .arena-header {
+      margin-bottom: clamp(2px, 0.6vh, 6px);
+      padding-bottom: clamp(2px, 0.6vh, 6px);
+    }
+    .arena-name {
+      font-size: clamp(16px, 4vw, 24px);
+    }
+  }
   @media (max-height: 520px) {
     #wrap { --board-size: min(88vw, calc(100dvh - 7rem)); }
     #hint { display: none; }
+    .arena-header {
+      margin-bottom: 2px;
+      padding-bottom: 2px;
+    }
+    .arena-title { font-size: 10px; margin-bottom: 2px; }
+    .arena-name { font-size: clamp(14px, 3.5vw, 18px); }
   }
 </style>
 </head>
 <body>
   <div id="splash">
-    <img id="splash-logo" src="logobg.png" class="active" />
-    <img id="splash-loader" src="loader.png" />
+    <img id="splash-logo" src="logobg.png" class="active" alt="" decoding="async" fetchpriority="high" />
+    <img id="splash-loader" src="loader.png" alt="" decoding="async" fetchpriority="high" />
   </div>
 
   <div id="menu-shell">
@@ -717,7 +744,7 @@
       </div>
     </div>
     </div>
-    <div id="hint">Drag to swap. Match 3+ to clear clouds, chains, and complete level goals.</div>
+    <div id="hint">Drag to swap. Match 3+ to clear clouds, idols, and complete level goals.</div>
     <button id="menu-btn">☰ Menu</button>
   </div>
 
@@ -726,13 +753,13 @@
 
   <div id="level-pass">
     <div class="level-pass-panel">
-      <img class="level-pass-banner" src="levelpassed.png" alt="Good Job! You passed the level!" />
+      <img class="level-pass-banner" src="levelpassed.png" alt="Good Job! You passed the level!" decoding="async" loading="eager" />
       <div class="level-pass-actions">
         <button type="button" id="btn-back-menu" class="level-pass-btn" aria-label="Back to Menu">
-          <img src="BackToMenu.png" alt="Back to Menu" />
+          <img src="BackToMenu.png" alt="Back to Menu" decoding="async" loading="eager" />
         </button>
         <button type="button" id="btn-next-level" class="level-pass-btn" aria-label="Next Level">
-          <img src="NextLevel.png" alt="Next Level" />
+          <img src="NextLevel.png" alt="Next Level" decoding="async" loading="eager" />
         </button>
       </div>
     </div>
@@ -751,27 +778,31 @@ const COLOR_NAMES = window.COLOR_NAMES || ["red", "green", "yellow", "blue", "pu
 // ============================================================================
 
 const EMPTY = -1;
-const CHAIN_BASE = 10;  // 10=chain1, 11=chain2, 12=chain3
-const LINE_H_BASE = 13; // 13..17 = horizontal stripe (color 0..4)
-const LINE_V_BASE = 18; // 18..22 = vertical stripe (color 0..4)
-const GEM = 23;         // drop objective — falls to exit tiles
+const IDOL_BASE = 10;   // 10=Idol25, 11=Idol50, 12=Idol75, 13=Idol100
+const IDOL_LEVELS = 4;
+const LINE_H_BASE = IDOL_BASE + IDOL_LEVELS; // horizontal stripe (color 0..4)
+const LINE_V_BASE = LINE_H_BASE + 5; // vertical stripe (color 0..4)
+const GEM = LINE_V_BASE + 5;         // drop objective — falls to exit tiles
 
 function baseColor(c) {
-  if (c === EMPTY || isChain(c) || isGem(c)) return -1;
+  if (c === EMPTY || isIdol(c) || isGem(c)) return -1;
   if (isLineH(c)) return c - LINE_H_BASE;
   if (isLineV(c)) return c - LINE_V_BASE;
   return c;
 }
-function isChain(c) { return c >= CHAIN_BASE && c < LINE_H_BASE; }
-function chainLevel(c) { return c - CHAIN_BASE + 1; }
-function toChain(level) { return CHAIN_BASE + level - 1; }
+function isIdol(c) { return c >= IDOL_BASE && c < IDOL_BASE + IDOL_LEVELS; }
+function idolLevel(c) { return c - IDOL_BASE + 1; }
+function toIdol(level) { return IDOL_BASE + level - 1; }
+const isChain = isIdol;
+const chainLevel = idolLevel;
+const toChain = toIdol;
 function isLineH(c) { return c >= LINE_H_BASE && c < LINE_V_BASE; }
 function isLineV(c) { return c >= LINE_V_BASE && c < LINE_V_BASE + 5; }
 function toLineH(color) { return LINE_H_BASE + color; }
 function toLineV(color) { return LINE_V_BASE + color; }
 function isGem(c) { return c === GEM; }
-function isImmovable(c) { return isChain(c) || isGem(c); }
-function isMatchable(c) { return c !== EMPTY && !isChain(c) && !isGem(c); }
+function isImmovable(c) { return isIdol(c) || isGem(c); }
+function isMatchable(c) { return c !== EMPTY && !isIdol(c) && !isGem(c); }
 function isVoidCell(b, x, y) {
   return b && b.voidCells && b.voidCells.has(x + "," + y);
 }
@@ -783,17 +814,17 @@ function cellBlocksMatch(grid, x, y, voidCells) {
 function clearTileAt(b, x, y) {
   const c = b.grid[x][y];
   if (c === EMPTY) return;
-  if (isChain(c)) b.grid[x][y] = chainLevel(c) <= 1 ? EMPTY : c - 1;
+  if (isIdol(c)) b.grid[x][y] = idolLevel(c) <= 1 ? EMPTY : c - 1;
   else b.grid[x][y] = EMPTY;
 }
 
-// Stripe/line blast removes chains and candies in one hit.
+// Stripe/line blast removes idols and candies in one hit.
 function clearWaveCell(b, x, y) {
   const c = b.grid[x][y];
   if (c === EMPTY) return;
-  if (isChain(c)) {
+  if (isIdol(c)) {
     b.grid[x][y] = EMPTY;
-    onChainDamaged(true);
+    onIdolDamaged(true);
     return;
   }
   b.grid[x][y] = EMPTY;
@@ -936,6 +967,8 @@ class Board {
           this.grid[x][y] = EMPTY;
           continue;
         }
+        const cur = this.grid[x][y];
+        if (isImmovable(cur) || isLineH(cur) || isLineV(cur)) continue;
         let color;
         do {
           color = this.rng.next(this.colorCount);
@@ -960,7 +993,7 @@ class Board {
     this.grid[bx][by] = tmp;
   }
 
-  // Swap two adjacent tiles. Keep it only if it creates a match. Chains never move.
+  // Swap two adjacent tiles. Keep it only if it creates a match. Idols never move.
   trySwap(ax, ay, bx, by) {
     if (!this.isAdjacent(ax, ay, bx, by)) return false;
     if (isVoidCell(this, ax, ay) || isVoidCell(this, bx, by)) return false;
@@ -1020,7 +1053,7 @@ class Board {
     }
   }
 
-  // When a match/wave clears next to a chain, damage it (chain3→2→1→gone).
+  // When a match/wave clears next to an idol, damage it (Idol100→75→50→25→gone).
   damageAdjacentChains(matched) {
     const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     const hit = new Set();
@@ -1030,15 +1063,15 @@ class Board {
         const nx = x + dx, ny = y + dy;
         if (nx < 0 || nx >= this.width || ny < 0 || ny >= this.height) continue;
         if (isVoidCell(this, nx, ny)) continue;
-        if (isChain(this.grid[nx][ny])) hit.add(nx + "," + ny);
+        if (isIdol(this.grid[nx][ny])) hit.add(nx + "," + ny);
       }
     }
     for (const key of hit) {
       const [x, y] = key.split(",").map(Number);
       const c = this.grid[x][y];
-      const before = chainLevel(c);
+      const before = idolLevel(c);
       this.grid[x][y] = before <= 1 ? EMPTY : c - 1;
-      if (typeof onChainDamaged === "function") onChainDamaged(before <= 1);
+      if (typeof onIdolDamaged === "function") onIdolDamaged(before <= 1);
     }
   }
 
@@ -1159,8 +1192,9 @@ const SPARKLE_COLORS = [
   "#b373e0", // purple
 ];
 const IMAGES = IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
-const CHAIN_IMAGE_FILES = ["chain1.png", "chain2.png", "chain3.png"];
-const CHAIN_IMAGES = CHAIN_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+const IDOL_IMAGE_FILES = ["Idol25.png", "Idol50.png", "Idol75.png", "Idol100.png"];
+const IDOL_IMAGES = IDOL_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+const CHAIN_IMAGES = IDOL_IMAGES;
 const pillowImg = new Image();
 pillowImg.src = "pillow.png";
 const HLINE_IMAGE_FILES = [
@@ -1202,11 +1236,12 @@ function countChainsOnBoard(b) {
   let n = 0;
   for (let x = 0; x < b.width; x++)
     for (let y = 0; y < b.height; y++)
-      if (isChain(b.grid[x][y])) n++;
+      if (isIdol(b.grid[x][y])) n++;
   return n;
 }
+const countIdolsOnBoard = countChainsOnBoard;
 
-// Chains only spawn inside fixed zones (never scattered). y=0 is the bottom row.
+// Idols only spawn inside fixed zones (never scattered). y=0 is the bottom row.
 function chainPlacementPool(b, pattern) {
   const keys = [];
   const w = b.width, h = b.height;
@@ -1298,28 +1333,28 @@ function chainPlacementPool(b, pattern) {
   return keys;
 }
 
-const ARENA2_CHAIN_PATTERNS = [
+const ARENA2_IDOL_PATTERNS = [
   "bottom2", "bottom3", "bottomSides", "bottomHeavy", "bottomSides",
   "bottom3", "bottomHeavy", "bottomMoat", "bottomCorridor", "bottomHeavy",
   "bottomSides", "bottom3", "bottomWings", "bottomHeavy", "bottomMoat",
   "bottomCorridor", "bottomHeavy", "bottomSides", "bottom3", "finale",
 ];
 
-const ARENA3_CHAIN_PATTERNS = [
+const ARENA3_IDOL_PATTERNS = [
   "bottom70", "bottom80", "topBand20", "bottom75", "bottomWings",
   "bottomSplit", "bottomMoat", "bottom80", "topBand25", "bottomCorridor",
   "bottom85", "bottomSplit", "bottom75", "bottomWings", "bottom80",
   "bottomMoat", "bottomCorridor", "bottom85", "bottom80", "finale",
 ];
 
-const ARENA4_CHAIN_PATTERNS = [
+const ARENA4_IDOL_PATTERNS = [
   "bottom75", "lowerWalls", "bottom80", "bottomSplit", "bottomMoat",
   "topBand25", "bottomCorridor", "bottom85", "bottomWings", "lowerWalls",
   "bottom80", "bottomSplit", "bottom75", "bottomMoat", "topBand20",
   "bottomCorridor", "lowerWalls", "bottom85", "bottom80", "finale",
 ];
 
-const ARENA5_CHAIN_PATTERNS = [
+const ARENA5_IDOL_PATTERNS = [
   "arena5pit", "bottom85", "bottomCorridor", "arena5pit", "bottomSplit",
   "lowerWalls", "bottom85", "bottomMoat", "arena5pit", "bottom80",
   "bottomWings", "lowerWalls", "bottom85", "bottomSplit", "arena5pit",
@@ -1328,10 +1363,10 @@ const ARENA5_CHAIN_PATTERNS = [
 
 function chainPlacementForArena(arena, slot, finale) {
   const idx = Math.min(19, Math.max(0, slot - 1));
-  if (arena === 2) return finale ? "finale" : ARENA2_CHAIN_PATTERNS[idx];
-  if (arena === 3) return finale ? "finale" : ARENA3_CHAIN_PATTERNS[idx];
-  if (arena === 4) return finale ? "finale" : ARENA4_CHAIN_PATTERNS[idx];
-  if (arena === 5) return finale ? "arena5pit" : ARENA5_CHAIN_PATTERNS[idx];
+  if (arena === 2) return finale ? "finale" : ARENA2_IDOL_PATTERNS[idx];
+  if (arena === 3) return finale ? "finale" : ARENA3_IDOL_PATTERNS[idx];
+  if (arena === 4) return finale ? "finale" : ARENA4_IDOL_PATTERNS[idx];
+  if (arena === 5) return finale ? "arena5pit" : ARENA5_IDOL_PATTERNS[idx];
   return "bottom80";
 }
 
@@ -1360,6 +1395,7 @@ function orderedChainPool(b, pattern, seed) {
 
 function placeChainsStrategic(b, chains, pattern, levelSeed) {
   const tiers = [];
+  for (let i = 0; i < (chains.c4 || 0); i++) tiers.push(4);
   for (let i = 0; i < (chains.c3 || 0); i++) tiers.push(3);
   for (let i = 0; i < (chains.c2 || 0); i++) tiers.push(2);
   for (let i = 0; i < (chains.c1 || 0); i++) tiers.push(1);
@@ -1374,7 +1410,7 @@ function placeChainsStrategic(b, chains, pattern, levelSeed) {
   for (let i = 0; i < pool.length && placed < tiers.length; i++) {
     const [x, y] = pool[i].split(",").map(Number);
     const old = b.grid[x][y];
-    b.grid[x][y] = toChain(tiers[placed]);
+    b.grid[x][y] = toIdol(tiers[placed]);
     if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) {
       b.grid[x][y] = old;
       continue;
@@ -1385,6 +1421,7 @@ function placeChainsStrategic(b, chains, pattern, levelSeed) {
 
 function placeChains(b, chains) {
   const tiers = [];
+  for (let i = 0; i < (chains.c4 || 0); i++) tiers.push(4);
   for (let i = 0; i < (chains.c3 || 0); i++) tiers.push(3);
   for (let i = 0; i < (chains.c2 || 0); i++) tiers.push(2);
   for (let i = 0; i < (chains.c1 || 0); i++) tiers.push(1);
@@ -1395,7 +1432,7 @@ function placeChains(b, chains) {
   for (let i = 0; i < pool.length && placed < tiers.length; i++) {
     const [x, y] = pool[i].split(",").map(Number);
     const old = b.grid[x][y];
-    b.grid[x][y] = toChain(tiers[placed]);
+    b.grid[x][y] = toIdol(tiers[placed]);
     if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) b.grid[x][y] = old;
     else placed++;
   }
@@ -1419,15 +1456,18 @@ function placeLinePowers(b, minN, maxN) {
 
 function placeLevelChains(b) {
   if (!currentLevelCfg) return;
+  const chains = currentLevelCfg.idols || currentLevelCfg.chains || {};
   const total =
-    (currentLevelCfg.chains.c1 || 0) +
-    (currentLevelCfg.chains.c2 || 0) +
-    (currentLevelCfg.chains.c3 || 0);
+    (chains.c1 || 0) +
+    (chains.c2 || 0) +
+    (chains.c3 || 0) +
+    (chains.c4 || 0);
   if (total <= 0) return;
   const pattern =
+    currentLevelCfg.idolPlacement ||
     currentLevelCfg.chainPlacement ||
     chainPlacementForArena(currentLevelCfg.arena || 1, currentLevelCfg.slot || 1, !!currentLevelCfg.finale);
-  placeChainsStrategic(b, currentLevelCfg.chains, pattern, currentLevel || 1);
+  placeChainsStrategic(b, chains, pattern, currentLevel || 1);
 }
 
 function applyPillows(b, pillows) {
@@ -1439,6 +1479,7 @@ function applyPillows(b, pillows) {
 
 function applyPathBlockers(b, pathCfg, chains) {
   if (!pathCfg || !pathCfg.cells) return;
+  chains = chains || {};
   b.pathCells = new Set(pathCfg.cells);
   const blockN = Math.ceil(pathCfg.cells.length * (pathCfg.block || 0.6));
   const pool = pathCfg.cells.filter((k) => {
@@ -1448,13 +1489,14 @@ function applyPathBlockers(b, pathCfg, chains) {
   shufflePool(pool, b.rng);
   let placed = 0;
   const tiers = [];
+  for (let i = 0; i < (chains.c4 || 0); i++) tiers.push(4);
   for (let i = 0; i < (chains.c3 || 0); i++) tiers.push(3);
   for (let i = 0; i < (chains.c2 || 0); i++) tiers.push(2);
   for (let i = 0; i < (chains.c1 || 0); i++) tiers.push(1);
   for (let i = 0; i < pool.length && placed < Math.min(blockN, tiers.length); i++) {
     const [x, y] = pool[i].split(",").map(Number);
     const old = b.grid[x][y];
-    b.grid[x][y] = toChain(tiers[placed]);
+    b.grid[x][y] = toIdol(tiers[placed]);
     if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) b.grid[x][y] = old;
     else placed++;
   }
@@ -1512,7 +1554,16 @@ function ensureBoardPlayable() {
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const DPR = Math.max(2, window.devicePixelRatio || 1); // multiply resolution for sharpness
+let boardRenderScale = 1;
+
+function renderDpr() {
+  return Math.max(2, window.devicePixelRatio || 1);
+}
+
+function setCanvasQuality(context) {
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+}
 
 // Separate overlay canvas for sparkles + combo text, so it can animate freely
 // on top of the board without being wiped by the board's per-frame redraws.
@@ -1525,13 +1576,13 @@ coinImg.src = "coin.png";
 let coinRain = null;
 
 function resizeCoinCanvas() {
-  const dpr = Math.max(2, window.devicePixelRatio || 1);
+  const dpr = renderDpr();
   coinCanvas.width = Math.floor(window.innerWidth * dpr);
   coinCanvas.height = Math.floor(window.innerHeight * dpr);
   coinCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  setCanvasQuality(coinCtx);
 }
 resizeCoinCanvas();
-window.addEventListener("resize", resizeCoinCanvas);
 
 function clearCoinRain() {
   coinRain = null;
@@ -1614,15 +1665,33 @@ function updateCoinRain(dt) {
   if (coinRain.length === 0) clearCoinRain();
 }
 
-// Size both canvases to the current grid. Setting canvas.width resets the 2D
-// transform, so the DPR scale is (re)applied here — call after WIDTH/HEIGHT change.
+function canvasCssSize() {
+  const r = canvas.getBoundingClientRect();
+  const logicalW = WIDTH * CELL;
+  const logicalH = HEIGHT * CELL;
+  return {
+    width: Math.max(1, r.width || logicalW),
+    height: Math.max(1, r.height || logicalH),
+    logicalW,
+    logicalH,
+  };
+}
+
+// Size both canvases to the current rendered board. The game still draws in
+// logical CELL units, but the backing bitmap now matches CSS pixels * DPR so
+// the browser does not upscale a low-resolution canvas on large screens.
 function resizeBoard() {
-  canvas.width = WIDTH * CELL * DPR;
-  canvas.height = HEIGHT * CELL * DPR;
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  fx.width = WIDTH * CELL * DPR;
-  fx.height = HEIGHT * CELL * DPR;
-  fxCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const dpr = renderDpr();
+  const size = canvasCssSize();
+  boardRenderScale = Math.min(size.width / size.logicalW, size.height / size.logicalH);
+  canvas.width = Math.ceil(size.width * dpr);
+  canvas.height = Math.ceil(size.height * dpr);
+  ctx.setTransform(boardRenderScale * dpr, 0, 0, boardRenderScale * dpr, 0, 0);
+  setCanvasQuality(ctx);
+  fx.width = canvas.width;
+  fx.height = canvas.height;
+  fxCtx.setTransform(boardRenderScale * dpr, 0, 0, boardRenderScale * dpr, 0, 0);
+  setCanvasQuality(fxCtx);
   const gridOverlay = document.getElementById("grid-overlay");
   if (gridOverlay) {
     gridOverlay.style.setProperty("--cols", WIDTH);
@@ -1632,6 +1701,14 @@ function resizeBoard() {
   if (wrap) wrap.style.aspectRatio = WIDTH + " / " + HEIGHT;
 }
 resizeBoard();
+
+function refreshResolution() {
+  resizeCoinCanvas();
+  resizeBoard();
+  if (board) render();
+}
+window.addEventListener("resize", refreshResolution);
+if (window.visualViewport) window.visualViewport.addEventListener("resize", refreshResolution);
 
 const scoreEl = document.getElementById("score");
 const movesEl = document.getElementById("moves");
@@ -1767,28 +1844,33 @@ function buildVoidCells(pattern, w, h) {
 }
 
 function distributeChains(total, arena, finale, progress) {
-  const c = { c1: 0, c2: 0, c3: 0 };
+  const c = { c1: 0, c2: 0, c3: 0, c4: 0 };
   if (total <= 0) return c;
   const p = progress || 0;
   if (arena === 2) {
+    c.c4 = finale ? Math.max(1, Math.floor(total * 0.08)) : 0;
     c.c3 = finale ? Math.max(1, Math.floor(total * 0.2)) : (p > 0.55 ? Math.floor(total * 0.12) : 0);
-    c.c2 = Math.floor(total * (0.12 + p * 0.28));
-    c.c1 = Math.max(0, total - c.c2 - c.c3);
+    c.c2 = Math.floor(total * (0.12 + p * 0.24));
+    c.c1 = Math.max(0, total - c.c2 - c.c3 - c.c4);
   } else if (arena <= 1) {
+    c.c4 = 0;
     c.c3 = 0;
     c.c2 = 0;
     c.c1 = total;
   } else if (arena === 3) {
-    c.c3 = Math.floor(total * (finale ? 0.28 : 0.14));
-    c.c2 = Math.floor(total * 0.38);
-    c.c1 = Math.max(0, total - c.c2 - c.c3);
-  } else {
-    c.c3 = Math.floor(total * (finale ? 0.42 : 0.26));
+    c.c4 = Math.floor(total * (finale ? 0.12 : p > 0.65 ? 0.06 : 0));
+    c.c3 = Math.floor(total * (finale ? 0.24 : 0.14));
     c.c2 = Math.floor(total * 0.34);
-    c.c1 = Math.max(0, total - c.c2 - c.c3);
+    c.c1 = Math.max(0, total - c.c2 - c.c3 - c.c4);
+  } else {
+    c.c4 = Math.floor(total * (finale ? 0.2 : arena >= 5 ? 0.12 + p * 0.08 : 0.08 + p * 0.05));
+    c.c3 = Math.floor(total * (finale ? 0.32 : 0.22));
+    c.c2 = Math.floor(total * 0.3);
+    c.c1 = Math.max(0, total - c.c2 - c.c3 - c.c4);
   }
   return c;
 }
+const distributeIdols = distributeChains;
 
 // Level defs built in level-objectives.js (loaded before this script ends).
 let LEVEL_DEFINITIONS = [];
@@ -1805,7 +1887,7 @@ function initLevelProgress() {
   levelProgress = {
     collect: {},
     stripes: 0,
-    chainsBroken: 0,
+  idolsBroken: 0,
     combos: 0,
     dropsCollected: 0,
   };
@@ -1829,14 +1911,15 @@ function pathBlockersRemaining(b) {
   let n = 0;
   for (const key of b.pathCells) {
     const [x, y] = key.split(",").map(Number);
-    if (isChain(b.grid[x][y])) n++;
+    if (isIdol(b.grid[x][y])) n++;
   }
   return n;
 }
 
-function onChainDamaged(removed) {
-  if (levelProgress) levelProgress.chainsBroken += removed ? 1 : 0;
+function onIdolDamaged(removed) {
+  if (levelProgress) levelProgress.idolsBroken += removed ? 1 : 0;
 }
+const onChainDamaged = onIdolDamaged;
 
 function damagePillowsOnCells(b, keys) {
   if (!b.pillows) return;
@@ -1873,7 +1956,8 @@ function objectiveMet(obj) {
   switch (obj.type) {
     case "score": return score >= obj.target;
     case "pillows": return countPillowsRemaining(board) === 0;
-    case "chains": return countChainsOnBoard(board) === 0;
+    case "chains":
+    case "idols": return countIdolsOnBoard(board) === 0;
     case "drops": return levelProgress.dropsCollected >= obj.amount;
     case "collect": return (levelProgress.collect[obj.color] || 0) >= obj.amount;
     case "stripes": return levelProgress.stripes >= obj.amount;
@@ -1895,9 +1979,10 @@ function objectiveHudLine(obj) {
       const n = countPillowsRemaining(board);
       return "Clouds " + (n === 0 ? "✓" : n + " left");
     }
-    case "chains": {
-      const n = countChainsOnBoard(board);
-      return "Chains " + (n === 0 ? "✓" : n + " left");
+    case "chains":
+    case "idols": {
+      const n = countIdolsOnBoard(board);
+      return "Idols " + (n === 0 ? "✓" : n + " left");
     }
     case "drops":
       return "Drop " + levelProgress.dropsCollected + "/" + obj.amount;
@@ -2137,35 +2222,40 @@ function roundRect(px, py, w, h, r) {
 // sx/sy are independent width/height multipliers used for squash-and-stretch.
 // glow (0..1) makes the sprite "light up" — a white halo plus an additive
 // re-draw that brightens it — used by the idle hint pulse.
-function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 1, glow = 0) {
-  const size = CELL - GAP;
-  const baseX = gx * CELL + GAP / 2;
-  const baseY = (HEIGHT - 1 - gy) * CELL + GAP / 2;
-  const cx = baseX + size / 2 + dx;
-  const cy = baseY + size / 2 + dy;
-  const w = size * scale * sx;
-  const h = size * scale * sy;
+function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 1, glow = 0, clipToCell = false) {
+  if (clipToCell) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(gx * CELL + 1, (HEIGHT - 1 - gy) * CELL + 1, CELL - 2, CELL - 2);
+    ctx.clip();
+  }
+  const finishDrawCell = () => {
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    if (clipToCell) ctx.restore();
+  };
+  const cx = gx * CELL + CELL / 2 + dx;
+  const cy = (HEIGHT - 1 - gy) * CELL + CELL / 2 + dy;
+  const w = Math.min(SPRITE_MAX_SIZE, SPRITE_SIZE * scale * sx);
+  const h = Math.min(SPRITE_MAX_SIZE, SPRITE_SIZE * scale * sy);
   ctx.globalAlpha = alpha;
   if (glow > 0) {
     ctx.shadowColor = "rgba(255,255,255,0.95)";
-    ctx.shadowBlur = 24 * glow;
+    ctx.shadowBlur = 14 * glow;
   }
   if (isGem(c)) {
-    const size = CELL - GAP;
-    const px = gx * CELL + GAP / 2 + dx;
-    const py = (HEIGHT - 1 - gy) * CELL + GAP / 2 + dy;
     ctx.fillStyle = "#ff6eb4";
     ctx.beginPath();
-    ctx.arc(px + size / 2, py + size / 2, size * 0.32, 0, Math.PI * 2);
+    ctx.arc(cx, cy, SPRITE_SIZE * 0.32, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.globalAlpha = 1;
+    finishDrawCell();
     return;
   }
-  if (isChain(c)) {
-    const img = CHAIN_IMAGES[chainLevel(c) - 1];
+  if (isIdol(c)) {
+    const img = IDOL_IMAGES[idolLevel(c) - 1];
     if (img && img.complete && img.naturalWidth > 0)
       ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
     else {
@@ -2173,7 +2263,7 @@ function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 
       roundRect(cx - w / 2, cy - h / 2, w, h, 10);
       ctx.fill();
     }
-    ctx.globalAlpha = 1;
+    finishDrawCell();
     return;
   }
   const bc = baseColor(c);
@@ -2198,11 +2288,11 @@ function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 
       ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
     ctx.globalCompositeOperation = "source-over";
   }
-  ctx.globalAlpha = 1;
+  finishDrawCell();
 }
 
 function sparkleOf(c) {
-  if (isChain(c)) return "#b8b0c8";
+  if (isIdol(c)) return "#d8c9ff";
   if (isGem(c)) return "#ff6eb4";
   const bc = baseColor(c);
   if (bc < 0) return "#ffffff";
@@ -2303,18 +2393,19 @@ function drawEmptyCell(x, y) {
   ctx.fill();
 }
 
-function drawBoardCell(x, y) {
+function drawBoardCell(x, y, ignoreCandy = false) {
   if (isVoidCell(board, x, y)) {
     drawVoidCell(x, y);
     return;
   }
-  drawUnderlayers(x, y);
   const c = board.get(x, y);
-  if (c === EMPTY) {
+  if (c === EMPTY || ignoreCandy) {
     drawEmptyCell(x, y);
-    return;
   }
-  drawCell(x, y, c);
+  drawUnderlayers(x, y);
+  if (!ignoreCandy && c !== EMPTY) {
+    drawCell(x, y, c, 1, 1, 0, 0, 1, 1, 0, true);
+  }
 }
 
 // Static render of the settled board, including the selection highlight.
@@ -2323,19 +2414,21 @@ function render() {
   for (let x = 0; x < WIDTH; x++) {
     for (let y = 0; y < HEIGHT; y++) {
       if (board && isVoidCell(board, x, y)) { drawVoidCell(x, y); continue; }
-      drawUnderlayers(x, y);
       const c = board.get(x, y);
       if (c === EMPTY) {
         drawEmptyCell(x, y);
+      }
+      drawUnderlayers(x, y);
+      if (c === EMPTY) {
         continue;
       }
       const selected = (x === selX && y === selY);
-      drawCell(x, y, c, selected ? 1.08 : 1);
+      drawCell(x, y, c, selected ? 1.04 : 1, 1, 0, 0, 1, 1, 0, true);
       if (selected) {
-        const size = (CELL - GAP) * 1.08;
-        const cx = x * CELL + GAP / 2 + (CELL - GAP) / 2;
-        const cy = (HEIGHT - 1 - y) * CELL + GAP / 2 + (CELL - GAP) / 2;
-        ctx.lineWidth = 3;
+        const size = SPRITE_MAX_SIZE;
+        const cx = x * CELL + CELL / 2;
+        const cy = (HEIGHT - 1 - y) * CELL + CELL / 2;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "#ffffff";
         roundRect(cx - size / 2, cy - size / 2, size, size, 10);
         ctx.stroke();
@@ -2350,7 +2443,7 @@ function render() {
 function renderHint(now) {
   const t = (now - hint.start) / HINT_DURATION_MS;        // 0..1 over the hint
   const p = Math.abs(Math.sin(t * Math.PI * HINT_PULSES)); // 0→1→0, pulsing
-  const scale = 1 + 0.2 * p;                               // up to 20% bigger
+  const scale = 1 + 0.12 * p;                              // stays inside cell lines
   const hintSet = new Set(hint.cells.map((c) => c.x + "," + c.y));
   clear();
   drawVoidLayer();
@@ -2359,8 +2452,8 @@ function renderHint(now) {
       if (isVoidCell(board, x, y)) continue;
       const c = board.get(x, y);
       if (c === EMPTY) continue;
-      if (hintSet.has(x + "," + y)) drawCell(x, y, c, scale, 1, 0, 0, 1, 1, p);
-      else drawCell(x, y, c);
+      if (hintSet.has(x + "," + y)) drawCell(x, y, c, scale, 1, 0, 0, 1, 1, p, true);
+      else drawCell(x, y, c, 1, 1, 0, 0, 1, 1, 0, true);
     }
 }
 
@@ -2395,13 +2488,14 @@ function animateJiggle(cells, speed = 1) {
   return animate(Math.max(40, Math.round(260 * speed)), (t) => {
     const wob = Math.sin(t * Math.PI * 3) * (1 - t) * 0.24; // decays to 0
     clear();
-    drawVoidLayer();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
-        const c = board.get(x, y);
-        if (c === EMPTY) continue;
-        if (set.has(x + "," + y)) drawCell(x, y, c, 1, 1, 0, 0, 1 + wob, 1 - wob);
-        else drawCell(x, y, c);
+        if (set.has(x + "," + y)) {
+          drawBoardCell(x, y, true);
+          drawCell(x, y, board.get(x, y), 1, 1, 0, 0, 1 + wob, 1 - wob);
+        } else {
+          drawBoardCell(x, y);
+        }
       }
   });
 }
@@ -2547,7 +2641,7 @@ function drawCenterPopup(now, popup, grow, hold, fade) {
   return true;
 }
 
-// Double starts the 3s window (+20%). Each higher chain step upgrades the rate and
+// Double starts the 3s window (+20%). Each higher combo step upgrades the rate and
 // refreshes the timer: Triple +30%, Quadruple +40%, +10% per step.
 function comboTierBonusRate(combo) {
   return combo >= 2 ? combo * 0.10 : 0;
@@ -2625,22 +2719,27 @@ function updateFx(now, dt) {
   }
 }
 
-// Chains cannot move — quick wiggle when the player tries to drag them.
+// Idols cannot move — quick wiggle when the player tries to drag them.
 function animateIceWiggle(cells) {
   const list = Array.isArray(cells) ? cells : [cells];
   const set = new Set(list.map((c) => c.x + "," + c.y));
   return animate(300, (t) => {
     const amp = Math.sin(t * Math.PI * 5) * 7 * (1 - t);
     clear();
-    drawVoidLayer();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
+        if (set.has(x + "," + y)) {
+          drawBoardCell(x, y, true);
+        } else {
+          drawBoardCell(x, y);
+        }
+      }
+    for (const { x, y } of list) {
         if (isVoidCell(board, x, y)) continue;
         const c = board.get(x, y);
         if (c === EMPTY) continue;
-        if (set.has(x + "," + y)) drawCell(x, y, c, 1, 1, amp * 0.7, -amp * 0.5);
-        else drawCell(x, y, c);
-      }
+        drawCell(x, y, c, 1, 1, amp * 0.7, -amp * 0.5);
+    }
   });
 }
 
@@ -2650,17 +2749,23 @@ function animateShake(ax, ay, bx, by) {
   return animate(360, (t) => {
     const amp = Math.sin(t * Math.PI * 5) * 8 * (1 - t);
     clear();
-    drawVoidLayer();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
+        const shaken = (x === ax && y === ay) || (x === bx && y === by);
+        if (shaken) {
+          drawBoardCell(x, y, true);
+        } else {
+          drawBoardCell(x, y);
+        }
+      }
+    for (const { x, y } of [{x: ax, y: ay}, {x: bx, y: by}]) {
         if (isVoidCell(board, x, y)) continue;
         const c = board.get(x, y);
         if (c === EMPTY) continue;
-        const shaken = (x === ax && y === ay) || (x === bx && y === by);
-        const dx = shaken && horizontal ? amp : 0;
-        const dy = shaken && !horizontal ? -amp : 0;
+        const dx = horizontal ? amp : 0;
+        const dy = !horizontal ? -amp : 0;
         drawCell(x, y, c, 1, 1, dx, dy);
-      }
+    }
   });
 }
 
@@ -2671,13 +2776,13 @@ function animateSwap(ax, ay, bx, by, speed = 1) {
   const targets = new Set([ax + "," + ay, bx + "," + by]);
   return animate(Math.max(40, Math.round(140 * speed)), (t) => {
     clear();
-    drawVoidLayer();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
-        if (isVoidCell(board, x, y)) continue;
-        const c = board.get(x, y);
-        if (c === EMPTY || targets.has(x + "," + y)) continue;
-        drawCell(x, y, c);
+        if (targets.has(x + "," + y)) {
+          drawBoardCell(x, y, true);
+          continue;
+        }
+        drawBoardCell(x, y);
       }
     drawCell(bx + (ax - bx) * t, by + (ay - by) * t, ca);
     drawCell(ax + (bx - ax) * t, ay + (by - ay) * t, cb);
@@ -2765,7 +2870,7 @@ function animateLineWaveClear(keysOrdered, tileSnap, speed = 1) {
         for (const cell of cells) {
           const local = elapsed - cell.start;
           if (local < 0) {
-            drawUnderlayers(cell.x, cell.y);
+            drawBoardCell(cell.x, cell.y, true);
             drawCell(cell.x, cell.y, cell.color);
             continue;
           }
@@ -2775,11 +2880,10 @@ function animateLineWaveClear(keysOrdered, tileSnap, speed = 1) {
           }
           if (local < popDur) {
             const p = easeIn(local / popDur);
-            drawUnderlayers(cell.x, cell.y);
+            drawBoardCell(cell.x, cell.y, true);
             drawCell(cell.x, cell.y, cell.color, 1 - p, 1 - p);
           } else {
-            drawUnderlayers(cell.x, cell.y);
-            drawEmptyCell(cell.x, cell.y);
+            drawBoardCell(cell.x, cell.y, true);
             const glowT = local - popDur;
             if (glowT < glowDur) {
               const glow = Math.sin((glowT / glowDur) * Math.PI) * 0.35;
@@ -2807,18 +2911,12 @@ function animateClear(matched, speed = 1) {
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
         const k = x + "," + y;
-        if (isVoidCell(board, x, y)) {
-          drawVoidCell(x, y);
-          continue;
+        if (matched.has(k)) {
+          drawBoardCell(x, y, true);
+          drawCell(x, y, board.get(x, y), 1 - t, 1 - t);
+        } else {
+          drawBoardCell(x, y);
         }
-        drawUnderlayers(x, y);
-        const c = board.get(x, y);
-        if (c === EMPTY) {
-          drawEmptyCell(x, y);
-          continue;
-        }
-        if (matched.has(k)) drawCell(x, y, c, 1 - t, 1 - t);
-        else drawCell(x, y, c);
       }
   
   }, easeIn);
@@ -2834,7 +2932,10 @@ function animateFall(moves, spawns, speed = 1) {
     clear();
     for (let x = 0; x < WIDTH; x++)
       for (let y = 0; y < HEIGHT; y++) {
-        if (targets.has(x + "," + y)) continue;
+        if (targets.has(x + "," + y)) {
+          drawBoardCell(x, y, true);
+          continue;
+        }
         drawBoardCell(x, y);
       }
     for (const it of items)
@@ -2928,11 +3029,9 @@ async function resolveCascades(fast) {
     boardAnimating = false;
     render();
   
-    if (!board.hasValidMove()) {
+    if (!levelGoalMet() && !board.hasValidMove()) {
       board.reshuffle();
-      setupLevelFeatures();
       render();
-    
     }
     updateGoalHud();
     resolving = false;
@@ -2988,7 +3087,7 @@ async function autoFinishRemainingMoves() {
 
 // Win or lose once a cascade settles (and from tick when idle).
 function checkLevelEnd() {
-  if (cascadePromise || !canPlayerMove()) return;
+  if (cascadePromise || boardAnimating || passCelebrationPending) return;
   if (levelGoalMet()) {
     if (autoFinishing) return;
     if (!levelGoalCelebrated) {
@@ -3038,8 +3137,8 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const localPos = (e) => {
   const r = canvas.getBoundingClientRect();
   return {
-    x: (e.clientX - r.left) * (canvas.width / r.width) / DPR,
-    y: (e.clientY - r.top) * (canvas.height / r.height) / DPR
+    x: (e.clientX - r.left) * ((WIDTH * CELL) / r.width),
+    y: (e.clientY - r.top) * ((HEIGHT * CELL) / r.height)
   };
 };
 
@@ -3069,16 +3168,18 @@ function renderDrag() {
   }
 
   clear();
-  drawVoidLayer();
   for (let x = 0; x < WIDTH; x++)
     for (let y = 0; y < HEIGHT; y++) {
-      if (isVoidCell(board, x, y)) continue;
-      const c = board.get(x, y);
-      if (c === EMPTY) continue;
-      if (x === dragFromX && y === dragFromY) continue; // grabbed: drawn last, on top
-      if (x === nx && y === ny) { drawCell(x, y, c, 1, 1, -dxp, -dyp); continue; }
-      drawCell(x, y, c);
+      if ((x === dragFromX && y === dragFromY) || (x === nx && y === ny)) {
+        drawBoardCell(x, y, true);
+      } else {
+        drawBoardCell(x, y);
+      }
     }
+  
+  if (nx !== -1 && ny !== -1) {
+    drawCell(nx, ny, board.get(nx, ny), 1, 1, -dxp, -dyp);
+  }
   drawCell(dragFromX, dragFromY, board.get(dragFromX, dragFromY), 1.12, 1, dxp, dyp);
 }
 
@@ -3447,7 +3548,6 @@ function startLevel(level) {
   currentLevelCfg = cfg;
   WIDTH = cfg.gridW;
   HEIGHT = cfg.gridH;
-  resizeBoard();
   levelTarget = cfg.target || 0;
   levelMoves = cfg.moves;
   hintsEnabled = cfg.hints;
@@ -3456,6 +3556,7 @@ function startLevel(level) {
   menuShell.classList.remove("show");
   levelMenu.classList.remove("show-grid");
   gameUi.style.display = "flex";
+  resizeBoard();
   inLevel = true;
   newGame();
 }
