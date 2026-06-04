@@ -1940,13 +1940,37 @@ COMBO_TIERS.forEach((tier, i) => {
 
 const comboWord = (n) => (COMBO_TIERS[n] && COMBO_TIERS[n].label) || (n + "× COMBO");
 
+// Draw rotating sunburst rays for popups.
+function drawSunburst(ctx, numRays, outerRadius, angle, color1, color2, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.rotate(angle);
+  for (let i = 0; i < numRays; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    const a1 = (i / numRays) * Math.PI * 2;
+    const a2 = ((i + 0.45) / numRays) * Math.PI * 2;
+    ctx.lineTo(Math.cos(a1) * outerRadius, Math.sin(a1) * outerRadius);
+    ctx.lineTo(Math.cos(a2) * outerRadius, Math.sin(a2) * outerRadius);
+    ctx.closePath();
+    
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, outerRadius);
+    grad.addColorStop(0, color1);
+    grad.addColorStop(0.65, color2);
+    grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 // Popup grows with each tier (Double smallest → Nonuple largest; 10+ keeps scaling).
 function comboPopupMetrics(combo) {
   const tier = Math.max(2, combo);
   return {
-    height: 64 + (tier - 2) * 14,
-    scaleMul: 1.45 + (tier - 2) * 0.11,
-    fontSize: 44 + (tier - 2) * 8,
+    height: 80 + (tier - 2) * 12,
+    scaleMul: 1.6 + (tier - 2) * 0.08,
+    fontSize: 52 + (tier - 2) * 8,
   };
 }
 
@@ -1972,8 +1996,9 @@ function showPassLevelCelebration() {
     passLevelPopup = {
       img: PASS_LEVEL_IMAGES[Math.floor(Math.random() * PASS_LEVEL_IMAGES.length)],
       start: performance.now(),
-      height: 80,
-      scaleMul: 1.55,
+      isPassLevel: true,
+      height: 140,
+      scaleMul: 2.2,
       onDone: resolve,
     };
   });
@@ -1983,40 +2008,100 @@ function showPassLevelCelebration() {
 function drawCenterPopup(now, popup, grow, hold, fade) {
   const total = grow + hold + fade;
   const t = (now - popup.start) / 1000;
-  let scale, alpha;
-  if (t < grow) {
-    const p = t / grow;
-    scale = 0.35 + 0.65 * easeOutBack(p);
-    alpha = Math.min(1, p * 1.8);
-  } else if (t < grow + hold) {
-    scale = 1; alpha = 1;
-  } else if (t < total) {
-    const f = (t - grow - hold) / fade;
-    scale = 1 + 0.22 * f;
-    alpha = 1 - f;
-  } else {
+  
+  if (t >= total) {
     return false;
   }
-  const s = scale * popup.scaleMul;
+
+  let scale, alpha, rotation = 0, yOffset = 0;
+  
+  if (t < grow) {
+    const p = t / grow;
+    const spring = easeOutBack(p);
+    scale = 0.1 + 0.9 * spring;
+    alpha = Math.min(1, p * 2.0);
+    rotation = -0.3 * (1 - p);
+    yOffset = 40 * (1 - spring);
+  } else if (t < grow + hold) {
+    const holdTime = t - grow;
+    scale = 1.0;
+    alpha = 1.0;
+    yOffset = Math.sin(holdTime * Math.PI * 2.0) * 8;
+    scale = 1.0 + Math.sin(holdTime * Math.PI * 2.0) * 0.04;
+    rotation = Math.sin(holdTime * Math.PI * 1.5) * 0.04;
+  } else {
+    const f = (t - grow - hold) / fade;
+    scale = 1.0 + Math.sin(hold * Math.PI * 2.0) * 0.04 + 0.35 * easeIn(f);
+    alpha = 1 - f;
+    yOffset = Math.sin(hold * Math.PI * 2.0) * 8 - 100 * easeIn(f);
+    rotation = Math.sin((hold + f * fade) * Math.PI * 1.5) * 0.04;
+  }
+
+  let s = scale * popup.scaleMul;
+  const targetImg = popup.img || COMBO_IMAGES[popup.combo];
+  
+  let w = 0, h = popup.height;
+  if (targetImg && targetImg.complete && targetImg.naturalWidth > 0) {
+    w = targetImg.naturalWidth * (h / targetImg.naturalHeight);
+  } else if (popup.text) {
+    const fs = popup.fontSize || 44;
+    w = fs * popup.text.length * 0.6;
+  }
+  
+  // Safe limits to prevent overflow on small boards
+  const maxAllowedW = (WIDTH * CELL) * 0.92;
+  const maxAllowedH = (HEIGHT * CELL) * 0.85;
+  if (w * s > maxAllowedW) {
+    s = maxAllowedW / w;
+  }
+  if (h * s > maxAllowedH) {
+    s = Math.min(s, maxAllowedH / h);
+  }
+
   fxCtx.save();
-  fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) * 0.2);
-  if (popup.img) {
-    const glowR = (36 + popup.height * 0.22) * s;
-    const bloom = fxCtx.createRadialGradient(0, 0, 0, 0, 0, glowR);
-    bloom.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.05) + ")");
-    bloom.addColorStop(0.45, "rgba(150, 190, 255, " + (alpha * 0.025) + ")");
-    bloom.addColorStop(1, "rgba(150, 190, 255, 0)");
-    fxCtx.fillStyle = bloom;
+  fxCtx.translate((WIDTH * CELL) / 2, (HEIGHT * CELL) / 2 + yOffset);
+  
+  const isLevelPass = !!popup.isPassLevel;
+  const glowR = (50 + h * 0.3) * s;
+  
+  if (isLevelPass) {
+    const sunAngle = (now / 1000) * 1.2;
+    drawSunburst(fxCtx, 16, glowR * 1.4, sunAngle, "rgba(255, 230, 100, 0.45)", "rgba(255, 170, 0, 0.1)", alpha);
+    drawSunburst(fxCtx, 12, glowR * 1.2, -sunAngle * 0.8, "rgba(255, 120, 200, 0.25)", "rgba(100, 220, 255, 0.05)", alpha);
+    
+    const radialGlow = fxCtx.createRadialGradient(0, 0, 0, 0, 0, glowR * 1.5);
+    radialGlow.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.75) + ")");
+    radialGlow.addColorStop(0.35, "rgba(255, 220, 100, " + (alpha * 0.45) + ")");
+    radialGlow.addColorStop(0.7, "rgba(255, 100, 180, " + (alpha * 0.2) + ")");
+    radialGlow.addColorStop(1, "rgba(255, 255, 255, 0)");
+    fxCtx.fillStyle = radialGlow;
     fxCtx.beginPath();
-    fxCtx.arc(0, 0, glowR, 0, Math.PI * 2);
+    fxCtx.arc(0, 0, glowR * 1.5, 0, Math.PI * 2);
+    fxCtx.fill();
+  } else {
+    const comboTierVal = popup.combo || 2;
+    const sunAngle = (now / 1000) * 0.8;
+    const intensity = Math.min(0.65, 0.3 + comboTierVal * 0.04);
+    const color1 = "rgba(255, 215, 0, " + (intensity * alpha) + ")";
+    const color2 = "rgba(255, 99, 71, " + (intensity * 0.4 * alpha) + ")";
+    
+    drawSunburst(fxCtx, 12, glowR * 1.25, sunAngle, color1, color2, alpha);
+    
+    const radialGlow = fxCtx.createRadialGradient(0, 0, 0, 0, 0, glowR * 1.3);
+    radialGlow.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.65) + ")");
+    radialGlow.addColorStop(0.4, "rgba(255, 215, 0, " + (alpha * 0.35) + ")");
+    radialGlow.addColorStop(1, "rgba(255, 255, 255, 0)");
+    fxCtx.fillStyle = radialGlow;
+    fxCtx.beginPath();
+    fxCtx.arc(0, 0, glowR * 1.3, 0, Math.PI * 2);
     fxCtx.fill();
   }
+
   fxCtx.globalAlpha = alpha;
   fxCtx.scale(s, s);
-  const targetImg = popup.img || COMBO_IMAGES[popup.combo];
+  fxCtx.rotate(rotation);
+
   if (targetImg && targetImg.complete && targetImg.naturalWidth > 0) {
-    const h = popup.height;
-    const w = targetImg.naturalWidth * (h / targetImg.naturalHeight);
     fxCtx.drawImage(targetImg, -w / 2, -h / 2, w, h);
   } else if (popup.text) {
     const fs = popup.fontSize || 44;
@@ -2029,6 +2114,7 @@ function drawCenterPopup(now, popup, grow, hold, fade) {
     fxCtx.fillStyle = "#ffe14d";
     fxCtx.fillText(popup.text, 0, 0);
   }
+
   fxCtx.restore();
   return true;
 }
@@ -2096,10 +2182,9 @@ function updateFx(now, dt) {
   fxCtx.globalAlpha = 1;
 
   if (passLevelPopup) {
-    const metrics = comboPopupMetrics(2);
-    passLevelPopup.height = metrics.height;
-    passLevelPopup.scaleMul = metrics.scaleMul;
-    if (!drawCenterPopup(now, passLevelPopup, 0.26, 2.0, 0.2)) {
+    passLevelPopup.height = passLevelPopup.height || 140;
+    passLevelPopup.scaleMul = passLevelPopup.scaleMul || 2.2;
+    if (!drawCenterPopup(now, passLevelPopup, 0.35, 2.2, 0.45)) {
       const done = passLevelPopup.onDone;
       passLevelPopup = null;
       if (done) done();
@@ -2110,7 +2195,7 @@ function updateFx(now, dt) {
     comboPopup.scaleMul = metrics.scaleMul;
     comboPopup.text = comboPopup.text || comboWord(comboPopup.combo);
     comboPopup.fontSize = metrics.fontSize;
-    if (!drawCenterPopup(now, comboPopup, 0.26, 0.4, 0.34)) comboPopup = null;
+    if (!drawCenterPopup(now, comboPopup, 0.28, 0.5, 0.38)) comboPopup = null;
   }
 }
 
