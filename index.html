@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<link rel="preload" as="image" href="logobg.png" media="(min-width: 769px)" fetchpriority="high" />
-<link rel="preload" as="image" href="mobileLogobg.png" media="(max-width: 768px)" fetchpriority="high" />
-<link rel="preload" as="image" href="loader.png" media="(min-width: 769px)" />
-<link rel="preload" as="image" href="MobileLoader.png" media="(max-width: 768px)" />
+<link rel="preload" as="image" href="images/loaders/logobg.png" media="(min-width: 769px)" fetchpriority="high" />
+<link rel="preload" as="image" href="images/loaders/mobileLogobg.png" media="(max-width: 768px)" fetchpriority="high" />
+<link rel="preload" as="image" href="images/loaders/loader.png" media="(min-width: 769px)" />
+<link rel="preload" as="image" href="images/loaders/MobileLoader.png" media="(max-width: 768px)" />
 <title>Match Duel — match-3 prototype</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
@@ -705,8 +705,8 @@
 </head>
 <body>
   <div id="splash">
-    <img id="splash-logo" src="logobg.png" class="active" alt="" decoding="async" fetchpriority="high" />
-    <img id="splash-loader" src="loader.png" alt="" decoding="async" fetchpriority="high" />
+    <img id="splash-logo" src="images/loaders/logobg.png" class="active" alt="" decoding="async" fetchpriority="high" />
+    <img id="splash-loader" src="images/loaders/loader.png" alt="" decoding="async" fetchpriority="high" />
   </div>
 
   <div id="menu-shell">
@@ -753,13 +753,13 @@
 
   <div id="level-pass">
     <div class="level-pass-panel">
-      <img class="level-pass-banner" src="levelpassed.png" alt="Good Job! You passed the level!" decoding="async" loading="eager" />
+      <img class="level-pass-banner" src="images/ui/levelpassed.png" alt="Good Job! You passed the level!" decoding="async" loading="eager" />
       <div class="level-pass-actions">
         <button type="button" id="btn-back-menu" class="level-pass-btn" aria-label="Back to Menu">
-          <img src="BackToMenu.png" alt="Back to Menu" decoding="async" loading="eager" />
+          <img src="images/ui/BackToMenu.png" alt="Back to Menu" decoding="async" loading="eager" />
         </button>
         <button type="button" id="btn-next-level" class="level-pass-btn" aria-label="Next Level">
-          <img src="NextLevel.png" alt="Next Level" decoding="async" loading="eager" />
+          <img src="images/ui/NextLevel.png" alt="Next Level" decoding="async" loading="eager" />
         </button>
       </div>
     </div>
@@ -1182,11 +1182,11 @@ const SPRITE_MAX_SIZE = CELL_DRAW_SIZE - 2;
 // indices, IMAGE_FILES[i] is the sprite drawn for tile i, and SPARKLE_COLORS[i]
 // is the matching spark color used by the particle burst on a clear.
 const IMAGE_FILES = [
-  "red.png",    // 0 red
-  "green.png",  // 1 green
-  "yellow.png", // 2 yellow
-  "blue.png",   // 3 blue
-  "purple.png", // 4 purple
+  "images/colors/red.png",    // 0 red
+  "images/colors/green.png",  // 1 green
+  "images/colors/yellow.png", // 2 yellow
+  "images/colors/blue.png",   // 3 blue
+  "images/colors/purple.png", // 4 purple
 ];
 const SPARKLE_COLORS = [
   "#e84d57", // red
@@ -1196,11 +1196,16 @@ const SPARKLE_COLORS = [
   "#b373e0", // purple
 ];
 const IMAGES = IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
-const IDOL_IMAGE_FILES = ["Idol25.png", "Idol50.png", "Idol75.png", "Idol100.png"];
+const IDOL_IMAGE_FILES = [
+  "images/idols/Idol25.png",
+  "images/idols/Idol50.png",
+  "images/idols/Idol75.png",
+  "images/idols/Idol100.png"
+];
 const IDOL_IMAGES = IDOL_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
 const CHAIN_IMAGES = IDOL_IMAGES;
 const pillowImg = new Image();
-pillowImg.src = "pillow.png";
+pillowImg.src = "images/items/pillow.png";
 const HLINE_IMAGE_FILES = [
   "HorizontalLines/red.png",
   "HorizontalLines/green.png",
@@ -1576,7 +1581,7 @@ const fxCtx = fx.getContext("2d");
 const coinCanvas = document.getElementById("coin-fx");
 const coinCtx = coinCanvas.getContext("2d");
 const coinImg = new Image();
-coinImg.src = "coin.png";
+coinImg.src = "images/items/coin.png";
 let coinRain = null;
 
 function resizeCoinCanvas() {
@@ -2136,7 +2141,7 @@ function spawnFlyingCoinsToWallet() {
 }
 
 function coinsDisplayHtml() {
-  return '<img src="coin.png" alt="" class="coin-icon" /><span>' + walletCoins.toLocaleString() + "</span>";
+  return '<img src="images/items/coin.png" alt="" class="coin-icon" /><span>' + walletCoins.toLocaleString() + "</span>";
 }
 
 function renderWallet() {
@@ -2688,14 +2693,14 @@ function drawCellBubble(gx, gy, t, color) {
 // Index matches cascade combo count: 2=Double … 9=Nonuple.
 const COMBO_TIERS = [
   null, null,
-  { label: "Double", file: "Double.png" },
-  { label: "Triple", file: "Triple.png" },
-  { label: "Quadruple", file: "Quadruple.png" },
-  { label: "Quintuple", file: "Quintuple.png" },
-  { label: "Sixfold", file: "Sixfold.png" },
-  { label: "Sevenfold", file: "Sevenfold.png" },
-  { label: "Octuple", file: "Octuple.png" },
-  { label: "Nonuple", file: "Nonuple.png" },
+  { label: "Double", file: "images/words/Double.png" },
+  { label: "Triple", file: "images/words/Triple.png" },
+  { label: "Quadruple", file: "images/words/Quadruple.png" },
+  { label: "Quintuple", file: "images/words/Quintuple.png" },
+  { label: "Sixfold", file: "images/words/Sixfold.png" },
+  { label: "Sevenfold", file: "images/words/Sevenfold.png" },
+  { label: "Octuple", file: "images/words/Octuple.png" },
+  { label: "Nonuple", file: "images/words/Nonuple.png" },
 ];
 const COMBO_IMAGES = {};
 COMBO_TIERS.forEach((tier, i) => {
@@ -3634,8 +3639,8 @@ const splash = document.getElementById("splash");
 const splashLogo = document.getElementById("splash-logo");
 const splashLoader = document.getElementById("splash-loader");
 const SPLASH_ASSETS = {
-  logo: { desktop: "logobg.png", mobile: "mobileLogobg.png" },
-  loader: { desktop: "loader.png", mobile: "MobileLoader.png" },
+  logo: { desktop: "images/loaders/logobg.png", mobile: "images/loaders/mobileLogobg.png" },
+  loader: { desktop: "images/loaders/loader.png", mobile: "images/loaders/MobileLoader.png" },
 };
 const mobileSplashMq = window.matchMedia("(max-width: 768px)");
 
