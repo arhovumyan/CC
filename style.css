@@ -20,6 +20,15 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  transition: background 0.5s ease-in-out;
+}
+#bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+  opacity: 0;
 }
 #menu-shell {
   display: none;
@@ -65,6 +74,7 @@ body {
     inset 0 -3px 8px rgba(80, 50, 120, 0.08);
   transform: rotate(-1.2deg);
   pointer-events: none;
+  transition: border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
 }
 #menu-wallet::before {
   content: "";
@@ -324,29 +334,6 @@ body {
   max-width: 100%;
 }
 
-#splash {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: linear-gradient(135deg, #fdfbf7 0%, #eef5fc 50%, #fceef5 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#splash img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  image-rendering: auto;
-  display: none;
-}
-@media (max-width: 768px) {
-  #splash img { object-fit: contain; }
-}
-#splash img.active {
-  display: block;
-}
-
 #coin-fx {
   position: fixed;
   inset: 0;
@@ -417,6 +404,26 @@ body {
   #level-pass .level-pass-panel {
     width: min(672px, 85vw);
   }
+  .arena-nav {
+    width: clamp(56px, 7vw, 80px);
+    height: clamp(96px, 16vw, 150px);
+    font-size: clamp(56px, 7vw, 90px);
+  }
+  .arena-panel {
+    padding: clamp(20px, 4vh, 48px) clamp(70px, 8vw, 150px);
+  }
+  .arena-title {
+    font-size: clamp(14px, 2.8vw, 18px);
+    margin-bottom: 8px;
+  }
+  .arena-name {
+    font-size: clamp(24px, 5vw, 36px);
+  }
+  .level-btn {
+    font-size: clamp(16px, 3.8vmin, 28px);
+    border-radius: clamp(12px, 2.8vmin, 20px);
+    border-width: 3px;
+  }
 }
 #level-pass .level-pass-banner {
   width: 100%;
@@ -466,54 +473,52 @@ body {
 
 #level-menu {
   display: none;
+  position: relative;
   flex: 1 1 auto;
   width: 100%;
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  align-items: center;
-  justify-content: center;
 }
 #level-menu.show-grid {
-  display: flex;
+  display: block;
 }
 .arena-carousel {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Bare chevrons pinned to the screen edges — no card, just the arrow. */
+.arena-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(40px, 7vw, 70px);
+  height: clamp(72px, 16vw, 120px);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 2vw, 14px);
-  max-width: 100%;
-  max-height: 100%;
-  --arena-size: min(58vw, 56dvh, calc(0.65 * (100dvh - 20px)));
-}
-.arena-nav {
-  flex-shrink: 0;
-  width: clamp(44px, 9vw, 56px);
-  height: clamp(58px, 14vw, 76px);
-  border: 2px solid rgba(160, 120, 220, 0.25);
-  border-radius: 18px 8px 20px 10px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.4));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #5c5a70;
-  font-size: clamp(32px, 8vw, 44px);
+  border: none;
+  background: none;
+  padding: 0;
+  color: rgba(45, 38, 62, 0.85);
+  font-size: clamp(48px, 9vw, 78px);
+  font-weight: 900;
   line-height: 1;
   cursor: pointer;
   touch-action: manipulation;
-  flex-shrink: 0;
-  box-shadow:
-    0 4px 0 rgba(160, 120, 220, 0.2),
-    0 6px 16px rgba(120, 100, 150, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  z-index: 5;
+  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.85), 0 0 2px rgba(255, 255, 255, 0.9);
+  z-index: 20;
+  transition: transform 0.12s ease, color 0.2s ease, opacity 0.2s ease;
 }
+#arena-prev { left: clamp(2px, 1.2vw, 22px); right: auto; }
+#arena-next { right: clamp(2px, 1.2vw, 22px); left: auto; }
 .arena-nav:hover:not(:disabled) {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(220, 200, 255, 0.6));
-  color: #3c2a4a;
-  transform: scale(1.04);
+  color: #1f1830;
+  transform: translateY(-50%) scale(1.14);
 }
-.arena-nav:disabled { opacity: 0.3; cursor: default; transform: none; }
+.arena-nav:disabled { opacity: 0.18; cursor: default; transform: translateY(-50%); }
 #arenas-scroll {
   display: flex;
   flex-direction: row;
@@ -524,80 +529,32 @@ body {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  flex: 0 0 var(--arena-size);
-  width: var(--arena-size);
-  height: var(--arena-size);
-  border-radius: clamp(16px, 3vw, 22px);
+  width: 100%;
+  height: 100%;
 }
 #arenas-scroll::-webkit-scrollbar { display: none; }
+/* A panel is a full-page, transparent canvas — no card around the levels. */
 .arena-panel {
   flex: 0 0 100%;
   width: 100%;
   min-width: 100%;
   height: 100%;
-  aspect-ratio: 1;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
-  border-radius: clamp(16px, 3vw, 22px);
-  box-shadow:
-    0 6px 0 rgba(140, 120, 160, 0.15),
-    0 12px 36px rgba(100, 80, 130, 0.08);
-  padding: clamp(12px, 2.5vh, 20px) clamp(10px, 2vw, 18px);
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: clamp(10px, 3vh, 32px) clamp(46px, 8vw, 120px);
   box-sizing: border-box;
-  border: 3px solid transparent;
   position: relative;
   overflow: hidden;
 }
-.arena-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.35;
-  pointer-events: none;
-  border-radius: inherit;
-}
-.arena-theme-1 {
-  background: linear-gradient(145deg, #f5effc 0%, #e8dbf5 55%, #dbcbfa 100%);
-  border-color: rgba(180, 140, 240, 0.45);
-}
-.arena-theme-1::before {
-  background: radial-gradient(circle at 20% 10%, rgba(255, 180, 220, 0.45), transparent 45%),
-    radial-gradient(circle at 80% 90%, rgba(140, 180, 255, 0.35), transparent 40%);
-}
-.arena-theme-2 {
-  background: linear-gradient(145deg, #effaf2 0%, #e0f2e5 50%, #ccead4 100%);
-  border-color: rgba(120, 210, 150, 0.45);
-}
-.arena-theme-2::before {
-  background: repeating-linear-gradient(
-    -45deg, transparent, transparent 8px, rgba(100, 200, 130, 0.06) 8px, rgba(100, 200, 130, 0.06) 16px
-  );
-}
-.arena-theme-3 {
-  background: linear-gradient(145deg, #faf7ec 0%, #f5eed3 50%, #eadeb4 100%);
-  border-color: rgba(230, 185, 90, 0.5);
-}
-.arena-theme-3::before {
-  background: radial-gradient(ellipse at 50% 0%, rgba(255, 220, 120, 0.2), transparent 55%);
-}
-.arena-theme-4 {
-  background: linear-gradient(145deg, #eef7fc 0%, #ddf0fa 50%, #cae5f5 100%);
-  border-color: rgba(100, 190, 240, 0.5);
-}
-.arena-theme-4::before {
-  background: linear-gradient(90deg, rgba(60, 160, 255, 0.08) 1px, transparent 1px);
-  background-size: 14px 100%;
-}
-.arena-theme-5 {
-  background: linear-gradient(145deg, #fcf0f2 0%, #fae2e5 45%, #f4ccd2 100%);
-  border-color: rgba(240, 120, 150, 0.55);
-}
-.arena-theme-5::before {
-  background: radial-gradient(circle at 50% 50%, rgba(255, 80, 100, 0.12), transparent 65%),
-    repeating-linear-gradient(0deg, transparent, transparent 12px, rgba(255, 120, 140, 0.05) 12px, rgba(255, 120, 140, 0.05) 24px);
-}
+.arena-panel::before { display: none; }
+/* Per-arena panel cards removed — the levels sit directly on the page. */
 .arena-theme-1 .arena-title { color: #7b4ea3; }
 .arena-theme-2 .arena-title { color: #2b7d4b; }
 .arena-theme-3 .arena-title { color: #9c6c13; }
@@ -608,13 +565,7 @@ body {
 .arena-theme-3 .arena-name { color: #614207; }
 .arena-theme-4 .arena-name { color: #0d4668; }
 .arena-theme-5 .arena-name { color: #6a1a29; }
-.arena-header {
-  text-align: center;
-  margin-bottom: clamp(4px, 1vh, 10px);
-  padding-bottom: clamp(4px, 1vh, 8px);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
-  flex-shrink: 0;
-}
+.arena-header { display: none; }
 .arena-title {
   font-size: clamp(11px, 2.4vw, 14px);
   font-weight: 800;
@@ -640,11 +591,11 @@ body {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(4, 1fr);
-  gap: clamp(4px, 1vmin, 8px);
-  flex: 1 1 0;
+  gap: clamp(8px, 1.8vw, 22px);
+  flex: 0 1 auto;
   min-height: 0;
-  width: 100%;
-  height: 100%;
+  width: 80%;
+  height: 80%;
   align-items: stretch;
   justify-items: stretch;
   overflow: hidden;
@@ -658,13 +609,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: clamp(10px, 2.2vmin, 16px);
-  font-size: clamp(13px, 3vmin, 22px);
+  background: rgba(255, 250, 252, 0.62);
+  border-radius: clamp(14px, 2.8vmin, 26px);
+  font-size: clamp(15px, 3.4vmin, 30px);
   font-weight: 800;
   color: #b0afb8;
-  border: 2px solid rgba(160, 150, 180, 0.15);
-  box-shadow: inset 0 2px 4px rgba(80, 70, 100, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 6px 18px rgba(120, 90, 130, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   cursor: not-allowed;
   user-select: none;
   touch-action: manipulation;
@@ -732,6 +683,11 @@ body {
   .arena-name {
     font-size: clamp(16px, 4vw, 24px);
   }
+  /* Portrait phones are very tall — keep tiles from stretching vertically. */
+  .arena-level-grid {
+    height: 40%;
+    width: 92%;
+  }
 }
 @media (max-height: 520px) {
   #wrap { --board-size: min(88vw, calc(100dvh - 7rem)); }
@@ -742,4 +698,37 @@ body {
   }
   .arena-title { font-size: 10px; margin-bottom: 2px; }
   .arena-name { font-size: clamp(14px, 3.5vw, 18px); }
+}
+
+/* Active Arena Theme Accents — just tint the bare chevron per arena. */
+#level-menu.active-arena-1 .arena-nav { color: rgba(74, 44, 104, 0.85); }
+#level-menu.active-arena-2 .arena-nav { color: rgba(22, 79, 42, 0.85); }
+#level-menu.active-arena-3 .arena-nav { color: rgba(97, 66, 7, 0.85); }
+#level-menu.active-arena-4 .arena-nav { color: rgba(13, 70, 104, 0.85); }
+#level-menu.active-arena-5 .arena-nav { color: rgba(106, 26, 41, 0.85); }
+
+#menu-shell.active-arena-1 #menu-wallet {
+  border-color: rgba(180, 140, 240, 0.45);
+  box-shadow: 0 5px 0 rgba(180, 140, 240, 0.2), 0 10px 28px rgba(120, 100, 150, 0.1), inset 0 2px 0 rgba(255, 255, 255, 0.75);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.5) 42%, rgba(230, 210, 255, 0.55) 100%);
+}
+#menu-shell.active-arena-2 #menu-wallet {
+  border-color: rgba(120, 210, 150, 0.45);
+  box-shadow: 0 5px 0 rgba(120, 210, 150, 0.2), 0 10px 28px rgba(100, 150, 120, 0.1), inset 0 2px 0 rgba(255, 255, 255, 0.75);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.5) 42%, rgba(210, 255, 225, 0.55) 100%);
+}
+#menu-shell.active-arena-3 #menu-wallet {
+  border-color: rgba(230, 185, 90, 0.5);
+  box-shadow: 0 5px 0 rgba(230, 185, 90, 0.2), 0 10px 28px rgba(150, 130, 90, 0.1), inset 0 2px 0 rgba(255, 255, 255, 0.75);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.5) 42%, rgba(255, 242, 210, 0.55) 100%);
+}
+#menu-shell.active-arena-4 #menu-wallet {
+  border-color: rgba(100, 190, 240, 0.5);
+  box-shadow: 0 5px 0 rgba(100, 190, 240, 0.2), 0 10px 28px rgba(90, 120, 150, 0.1), inset 0 2px 0 rgba(255, 255, 255, 0.75);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.5) 42%, rgba(210, 240, 255, 0.55) 100%);
+}
+#menu-shell.active-arena-5 #menu-wallet {
+  border-color: rgba(240, 120, 150, 0.55);
+  box-shadow: 0 5px 0 rgba(240, 120, 150, 0.25), 0 10px 28px rgba(150, 90, 110, 0.1), inset 0 2px 0 rgba(255, 255, 255, 0.75);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.5) 42%, rgba(255, 215, 225, 0.55) 100%);
 }

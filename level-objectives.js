@@ -81,10 +81,36 @@
     return exits;
   }
 
+  function safesForLevel(arena, slot, p, finale, open) {
+    if (arena < 2) return { s1: 0, s2: 0, s3: 0 };
+    let total = 0;
+    if (arena === 2) {
+      if (slot >= 14) total = Math.min(4, 1 + Math.floor(p * 2) + (finale ? 1 : 0));
+    } else if (arena === 3) {
+      total = Math.min(
+        Math.floor(open * 0.18),
+        2 + Math.floor(p * 4) + (finale ? 2 : slot % 2 === 0 ? 1 : 0)
+      );
+    } else if (arena === 4) {
+      total = Math.min(
+        Math.floor(open * 0.22),
+        3 + Math.floor(p * 5) + (finale ? 3 : 0)
+      );
+    } else {
+      total = Math.min(
+        Math.floor(open * 0.25),
+        4 + Math.floor(p * 6) + (finale ? 4 : 0)
+      );
+    }
+    if (total <= 0) return { s1: 0, s2: 0, s3: 0 };
+    return G.distributeSafes(total, arena, finale, p);
+  }
+
   function assignLevelDefinition(n, arena, slot, p, finale, w, h, voidCells, open) {
     const rng = { next: (m) => ((n * 7919 + slot * 997 + arena * 101) % m) };
     const objectives = [];
     let chains = { c1: 0, c2: 0, c3: 0, c4: 0 };
+    let safes = safesForLevel(arena, slot, p, finale, open);
     let chainPlacement = null;
     let pillows = [];
     let drops = null;
@@ -294,6 +320,9 @@
       lines = [1, 2 + Math.floor(p * 2)];
     }
 
+    const safeTotal = (safes.s1 || 0) + (safes.s2 || 0) + (safes.s3 || 0);
+    if (safeTotal > 0) objectives.push({ type: "safes" });
+
     return {
       level: n,
       arena,
@@ -307,6 +336,7 @@
       levelType,
       chains,
       idols: chains,
+      safes,
       chainPlacement,
       idolPlacement: chainPlacement,
       pillows,
@@ -341,6 +371,15 @@
       if (obj.type === "stripes") moves += 3 + (obj.amount || 1) * 2;
       if (obj.type === "combos") moves += 4 + (obj.amount || 1) * 3;
       if (obj.type === "path") moves += 8 + Math.floor((cfg.path?.cells?.length || 8) * 0.35);
+      if (obj.type === "safes") {
+        const s = cfg.safes || {};
+        const t = (s.s1 || 0) + (s.s2 || 0) + (s.s3 || 0);
+        const weighted =
+          (s.s1 || 0) +
+          (s.s2 || 0) * 1.4 +
+          (s.s3 || 0) * 2.1;
+        moves += Math.ceil(Math.max(t * 1.1, weighted)) + 2;
+      }
     }
     moves = Math.ceil(moves * (1 + cfg.voidCount / Math.max(1, cfg.w * cfg.h) * 0.08));
     if (cfg.finale) moves -= 2;

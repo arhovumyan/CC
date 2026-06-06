@@ -14,9 +14,11 @@ const IDOL_LEVELS = 4;
 const LINE_H_BASE = IDOL_BASE + IDOL_LEVELS; // horizontal stripe (color 0..4)
 const LINE_V_BASE = LINE_H_BASE + 5; // vertical stripe (color 0..4)
 const GEM = LINE_V_BASE + 5;         // drop objective — falls to exit tiles
+const SAFE_BASE = GEM + 1;           // 25=Safe L1, 26=L2, 27=L3
+const SAFE_LEVELS = 3;
 
 function baseColor(c) {
-  if (c === EMPTY || isIdol(c) || isGem(c)) return -1;
+  if (c === EMPTY || isIdol(c) || isSafe(c) || isGem(c)) return -1;
   if (isLineH(c)) return c - LINE_H_BASE;
   if (isLineV(c)) return c - LINE_V_BASE;
   return c;
@@ -32,8 +34,11 @@ function isLineV(c) { return c >= LINE_V_BASE && c < LINE_V_BASE + 5; }
 function toLineH(color) { return LINE_H_BASE + color; }
 function toLineV(color) { return LINE_V_BASE + color; }
 function isGem(c) { return c === GEM; }
-function isImmovable(c) { return isIdol(c) || isGem(c); }
-function isMatchable(c) { return c !== EMPTY && !isIdol(c) && !isGem(c); }
+function isSafe(c) { return c >= SAFE_BASE && c < SAFE_BASE + SAFE_LEVELS; }
+function safeLevel(c) { return c - SAFE_BASE + 1; }
+function toSafe(level) { return SAFE_BASE + level - 1; }
+function isImmovable(c) { return isIdol(c) || isSafe(c) || isGem(c); }
+function isMatchable(c) { return c !== EMPTY && !isIdol(c) && !isSafe(c) && !isGem(c); }
 function isVoidCell(b, x, y) {
   return b && b.voidCells && b.voidCells.has(x + "," + y);
 }
@@ -46,6 +51,7 @@ function clearTileAt(b, x, y) {
   const c = b.grid[x][y];
   if (c === EMPTY) return;
   if (isIdol(c)) b.grid[x][y] = idolLevel(c) <= 1 ? EMPTY : c - 1;
+  else if (isSafe(c)) b.grid[x][y] = safeLevel(c) <= 1 ? EMPTY : c - 1;
   else b.grid[x][y] = EMPTY;
 }
 
@@ -54,8 +60,16 @@ function clearWaveCell(b, x, y) {
   const c = b.grid[x][y];
   if (c === EMPTY) return;
   if (isIdol(c)) {
+    const lvl = idolLevel(c);
     b.grid[x][y] = EMPTY;
     onIdolDamaged(true);
+    triggerIdolHit(x, y, true, lvl);
+    return;
+  }
+  if (isSafe(c)) {
+    b.grid[x][y] = EMPTY;
+    onSafeDamaged(true);
+    triggerSafeHit(x, y, true, safeLevel(c));
     return;
   }
   b.grid[x][y] = EMPTY;
@@ -284,7 +298,7 @@ class Board {
     }
   }
 
-  // When a match/wave clears next to an idol, damage it (Idol100→75→50→25→gone).
+  // When a match/wave clears next to an idol or safe, damage it one tier.
   damageAdjacentChains(matched) {
     const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     const hit = new Set();
@@ -294,43 +308,71 @@ class Board {
         const nx = x + dx, ny = y + dy;
         if (nx < 0 || nx >= this.width || ny < 0 || ny >= this.height) continue;
         if (isVoidCell(this, nx, ny)) continue;
-        if (isIdol(this.grid[nx][ny])) hit.add(nx + "," + ny);
+        const nc = this.grid[nx][ny];
+        if (isIdol(nc) || isSafe(nc)) hit.add(nx + "," + ny);
       }
     }
     for (const key of hit) {
       const [x, y] = key.split(",").map(Number);
       const c = this.grid[x][y];
-      const before = idolLevel(c);
-      this.grid[x][y] = before <= 1 ? EMPTY : c - 1;
-      if (typeof onIdolDamaged === "function") onIdolDamaged(before <= 1);
+      if (isIdol(c)) {
+        const before = idolLevel(c);
+        const removed = before <= 1;
+        this.grid[x][y] = removed ? EMPTY : c - 1;
+        if (typeof onIdolDamaged === "function") onIdolDamaged(removed);
+        triggerIdolHit(x, y, removed, before);
+      } else if (isSafe(c)) {
+        const before = safeLevel(c);
+        const removed = before <= 1;
+        this.grid[x][y] = removed ? EMPTY : c - 1;
+        if (typeof onSafeDamaged === "function") onSafeDamaged(removed);
+        triggerSafeHit(x, y, removed, before);
+      }
     }
   }
 
-  applyGravityMapped() {
+  applyGravityMapped(opts) {
+    const skipColumns = opts && opts.skipColumns ? opts.skipColumns : null;
     const moves = [];
     for (let x = 0; x < this.width; x++) {
+      if (skipColumns && skipColumns.has(x)) continue;
       const slots = this.columnSlots(x);
-      const tiles = [];
-      const fromYs = [];
+      const segments = [];
+      let seg = [];
       for (const y of slots) {
-        if (this.grid[x][y] !== EMPTY) {
-          tiles.push(this.grid[x][y]);
-          fromYs.push(y);
+        if (isGravityBlocked(x, y)) {
+          if (seg.length) { segments.push(seg); seg = []; }
+        } else {
+          seg.push(y);
         }
       }
-      for (const y of slots) this.grid[x][y] = EMPTY;
-      for (let i = 0; i < tiles.length; i++) {
-        const toY = slots[i];
-        if (fromYs[i] !== toY) moves.push({ x, fromY: fromYs[i], toY, color: tiles[i] });
-        this.grid[x][toY] = tiles[i];
+      if (seg.length) segments.push(seg);
+
+      for (const segment of segments) {
+        const tiles = [];
+        const fromYs = [];
+        for (const y of segment) {
+          if (this.grid[x][y] !== EMPTY) {
+            tiles.push(this.grid[x][y]);
+            fromYs.push(y);
+          }
+        }
+        for (const y of segment) this.grid[x][y] = EMPTY;
+        for (let i = 0; i < tiles.length; i++) {
+          const toY = segment[i];
+          if (fromYs[i] !== toY) moves.push({ x, fromY: fromYs[i], toY, color: tiles[i] });
+          this.grid[x][toY] = tiles[i];
+        }
       }
     }
     return moves;
   }
 
-  refillMapped() {
+  refillMapped(opts) {
+    const skipColumns = opts && opts.skipColumns ? opts.skipColumns : null;
     const spawns = [];
     for (let x = 0; x < this.width; x++) {
+      if (skipColumns && skipColumns.has(x)) continue;
       const slots = this.columnSlots(x);
       let nEmpty = 0;
       for (const y of slots)
@@ -338,7 +380,7 @@ class Board {
       if (nEmpty === 0) continue;
       let spawned = 0;
       for (const y of slots) {
-        if (this.grid[x][y] === EMPTY) {
+        if (this.grid[x][y] === EMPTY && !isGravityBlocked(x, y)) {
           const color = this.rng.next(this.colorCount);
           this.grid[x][y] = color;
           spawns.push({ x, y, color, startY: y + (nEmpty - spawned) });
@@ -435,8 +477,56 @@ const IDOL_IMAGE_FILES = [
 ];
 const IDOL_IMAGES = IDOL_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
 const CHAIN_IMAGES = IDOL_IMAGES;
+const SAFE_IMAGE_FILES = [
+  "images/safe/Safe1.png",
+  "images/safe/Safe2.png",
+  "images/safe/Safe3.png",
+];
+const SAFE_IMAGES = SAFE_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+const goldBarImg = new Image();
+goldBarImg.src = "images/safe/GoldBar.png";
+const SAFE_DEATH_MS = 600;
+const SAFE_DEATH_COVER_SCALE = (CELL * 3.1) / SPRITE_SIZE;
 const pillowImg = new Image();
 pillowImg.src = "images/items/pillow.png";
+const rocksImg = new Image();
+rocksImg.src = "images/items/rocks.png";
+const keyedRocksCanvas = document.createElement("canvas");
+const keyedRocksCtx = keyedRocksCanvas.getContext("2d");
+let rocksLoaded = false;
+
+function processRocks() {
+  if (rocksLoaded) return;
+  if (!rocksImg.complete || rocksImg.naturalWidth === 0) return;
+  keyedRocksCanvas.width = rocksImg.naturalWidth;
+  keyedRocksCanvas.height = rocksImg.naturalHeight;
+  keyedRocksCtx.drawImage(rocksImg, 0, 0);
+  try {
+    const imgData = keyedRocksCtx.getImageData(0, 0, keyedRocksCanvas.width, keyedRocksCanvas.height);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
+      const maxVal = Math.max(r, g, b);
+      if (maxVal < 15) {
+        data[i+3] = 0;
+      } else if (maxVal < 35) {
+        const ratio = (maxVal - 15) / 20;
+        data[i+3] = Math.round(data[i+3] * ratio);
+      }
+    }
+    keyedRocksCtx.putImageData(imgData, 0, 0);
+    rocksLoaded = true;
+  } catch (e) {
+    console.error("Error keying out black from rocks.png", e);
+    rocksLoaded = true;
+  }
+}
+rocksImg.onload = processRocks;
+if (rocksImg.complete) {
+  processRocks();
+}
 const HLINE_IMAGE_FILES = [
   "HorizontalLines/red.png",
   "HorizontalLines/green.png",
@@ -453,6 +543,14 @@ const VLINE_IMAGE_FILES = [
 ];
 const HLINE_IMAGES = HLINE_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
 const VLINE_IMAGES = VLINE_IMAGE_FILES.map((src) => { const im = new Image(); im.src = src; return im; });
+
+// The page uses one fixed backdrop (bg1). Preload it up front for both layouts
+// so the body never flashes an empty backdrop before the CSS url() resolves.
+const BG_IMAGE = "bg1";
+const BG_PRELOAD = [
+  `images/backgroundImages/Desktop/${BG_IMAGE}.png`,
+  `images/backgroundImages/mobile/${BG_IMAGE}.png`,
+].map((src) => { const im = new Image(); im.src = src; return im; });
 
 function shufflePool(pool, rng) {
   for (let i = pool.length - 1; i > 0; i--) {
@@ -480,6 +578,64 @@ function countChainsOnBoard(b) {
   return n;
 }
 const countIdolsOnBoard = countChainsOnBoard;
+
+function countSafesOnBoard(b) {
+  let n = 0;
+  for (let x = 0; x < b.width; x++)
+    for (let y = 0; y < b.height; y++)
+      if (isSafe(b.grid[x][y])) n++;
+  return n;
+}
+
+function distributeSafes(total, arena, finale, progress) {
+  const s = { s1: 0, s2: 0, s3: 0 };
+  if (total <= 0) return s;
+  const p = progress || 0;
+  if (arena <= 2) {
+    s.s1 = total;
+  } else if (arena === 3) {
+    s.s3 = finale ? Math.max(1, Math.floor(total * 0.15)) : (p > 0.6 ? Math.floor(total * 0.1) : 0);
+    s.s2 = Math.floor(total * (finale ? 0.35 : 0.28 + p * 0.12));
+    s.s1 = Math.max(0, total - s.s2 - s.s3);
+  } else {
+    s.s3 = Math.floor(total * (finale ? 0.28 : 0.12 + p * 0.1));
+    s.s2 = Math.floor(total * (finale ? 0.38 : 0.3));
+    s.s1 = Math.max(0, total - s.s2 - s.s3);
+  }
+  return s;
+}
+
+function placeSafes(b, safes) {
+  const tiers = [];
+  for (let i = 0; i < (safes.s3 || 0); i++) tiers.push(3);
+  for (let i = 0; i < (safes.s2 || 0); i++) tiers.push(2);
+  for (let i = 0; i < (safes.s1 || 0); i++) tiers.push(1);
+  if (tiers.length === 0) return;
+  const pool = candyPool(b).filter((key) => {
+    const [x, y] = key.split(",").map(Number);
+    return !isIdol(b.grid[x][y]) && !isSafe(b.grid[x][y]);
+  });
+  shufflePool(pool, b.rng);
+  let placed = 0;
+  for (let i = 0; i < pool.length && placed < tiers.length; i++) {
+    const [x, y] = pool[i].split(",").map(Number);
+    const old = b.grid[x][y];
+    b.grid[x][y] = toSafe(tiers[placed]);
+    if (findMatches(b.grid, b.width, b.height, b.voidCells).size > 0) {
+      b.grid[x][y] = old;
+      continue;
+    }
+    placed++;
+  }
+}
+
+function placeLevelSafes(b) {
+  if (!currentLevelCfg) return;
+  const safes = currentLevelCfg.safes || {};
+  const total = (safes.s1 || 0) + (safes.s2 || 0) + (safes.s3 || 0);
+  if (total <= 0) return;
+  placeSafes(b, safes);
+}
 
 // Idols only spawn inside fixed zones (never scattered). y=0 is the bottom row.
 function chainPlacementPool(b, pattern) {
@@ -773,6 +929,7 @@ function setupLevelFeatures() {
   applyPillows(board, currentLevelCfg.pillows);
   if (currentLevelCfg.path) board.pathCells = new Set(currentLevelCfg.path.cells);
   placeLevelChains(board);
+  placeLevelSafes(board);
   placeDropGems(board, currentLevelCfg.drops);
   placeLinePowers(board, currentLevelCfg.lines[0], currentLevelCfg.lines[1]);
   ensureBoardPlayable();
@@ -786,6 +943,7 @@ function ensureBoardPlayable() {
       applyPillows(board, currentLevelCfg.pillows);
       if (currentLevelCfg.path) board.pathCells = new Set(currentLevelCfg.path.cells);
       placeLevelChains(board);
+      placeLevelSafes(board);
       placeDropGems(board, currentLevelCfg.drops);
       placeLinePowers(board, currentLevelCfg.lines[0], currentLevelCfg.lines[1]);
     }
@@ -999,6 +1157,63 @@ let flyingWalletCoins = [];
 let seed = 12345;
 let lastTs = 0;
 let particles = [];      // active sparkle particles
+let safeAnims = [];      // { x, y, type: 'pulse'|'death', level, start, dur }
+let safeBlockers = new Set(); // "x,y" cells that block gravity during safe death
+let idolAnims = [];      // { x, y, type: 'pulse'|'death', level, start, dur, rocksSpawned: false }
+let idolBlockers = new Set(); // "x,y" cells that block gravity during idol death
+let idolExplosions = []; // { x, y, start, dur } screen-space burst rings for idols
+const IDOL_DEATH_MS = 250; // Faster death animation/blocker duration to be gone in an instant
+
+function triggerIdolHit(x, y, removed, prevLevel) {
+  const now = performance.now();
+  idolAnims = idolAnims.filter((a) => !(a.x === x && a.y === y));
+  if (removed) {
+    idolBlockers.add(x + "," + y);
+    // Spawn explosion and rocks immediately so they are gone in an instant
+    spawnIdolExplosion(x, y);
+    spawnIdolRocks(x, y);
+    idolAnims.push({
+      x, y, type: "death", level: prevLevel, start: now, dur: IDOL_DEATH_MS, rocksSpawned: true
+    });
+  } else {
+    idolAnims.push({ x, y, type: "pulse", level: prevLevel, start: now, dur: 300 });
+  }
+}
+
+function spawnIdolExplosion(x, y) {
+  const cx = x * CELL + CELL / 2;
+  const cy = (HEIGHT - 1 - y) * CELL + CELL / 2;
+  idolExplosions.push({ x: cx, y: cy, start: performance.now(), dur: 250 }); // Faster expanding circle (250ms instead of 520ms)
+}
+
+function isGravityBlocked(x, y) {
+  return safeBlockers.has(x + "," + y) || idolBlockers.has(x + "," + y);
+}
+
+function idolAnimAt(x, y, now) {
+  const anim = idolAnims.find((a) => a.x === x && a.y === y && now - a.start < a.dur);
+  if (!anim) return null;
+  const progress = Math.min(1, (now - anim.start) / anim.dur);
+  if (anim.type === "pulse") {
+    const pulse = 1 + 0.15 * Math.sin(progress * Math.PI);
+    return { type: "pulse", scale: pulse, dx: 0, dy: 0, alpha: 1, level: anim.level };
+  }
+  const scale = 1.0 + progress;
+  const shakeRamp = Math.pow(progress, 2.5);
+  const amp = shakeRamp * CELL * 0.08;
+  const elapsed = now - anim.start;
+  const freqX = 40 + 120 * progress;
+  const freqY = 46 + 130 * progress;
+  const shakeX = Math.sin(elapsed * 0.001 * freqX) * amp;
+  const shakeY = Math.cos(elapsed * 0.001 * freqY) * amp;
+  let alpha = 1;
+  if (progress > 0.85) {
+    alpha = (1 - progress) / 0.15;
+  }
+  return { type: "death", scale, dx: shakeX, dy: shakeY, alpha, level: anim.level };
+}
+let safeExplosions = []; // { x, y, start, dur } screen-space burst rings
+let safeBlastCenters = []; // { x, y } safes that just exploded — their neighbors get killed
 let comboPopup = null;   // { text, start } for the "Double/Triple" pop
 const COMBO_BONUS_MS = 6000;
 let comboBonusUntil = 0; // perf-now deadline for the bonus window
@@ -1157,6 +1372,7 @@ function initLevelProgress() {
     collect: {},
     stripes: 0,
   idolsBroken: 0,
+    safesBroken: 0,
     combos: 0,
     dropsCollected: 0,
   };
@@ -1189,6 +1405,10 @@ function onIdolDamaged(removed) {
   if (levelProgress) levelProgress.idolsBroken += removed ? 1 : 0;
 }
 const onChainDamaged = onIdolDamaged;
+
+function onSafeDamaged(removed) {
+  if (levelProgress) levelProgress.safesBroken += removed ? 1 : 0;
+}
 
 function damagePillowsOnCells(b, keys) {
   if (!b.pillows) return;
@@ -1227,6 +1447,7 @@ function objectiveMet(obj) {
     case "pillows": return countPillowsRemaining(board) === 0;
     case "chains":
     case "idols": return countIdolsOnBoard(board) === 0;
+    case "safes": return countSafesOnBoard(board) === 0;
     case "drops": return levelProgress.dropsCollected >= obj.amount;
     case "collect": return (levelProgress.collect[obj.color] || 0) >= obj.amount;
     case "stripes": return levelProgress.stripes >= obj.amount;
@@ -1252,6 +1473,10 @@ function objectiveHudLine(obj) {
     case "idols": {
       const n = countIdolsOnBoard(board);
       return "Idols " + (n === 0 ? "✓" : n + " left");
+    }
+    case "safes": {
+      const n = countSafesOnBoard(board);
+      return "Safes " + (n === 0 ? "✓" : n + " left");
     }
     case "drops":
       return "Drop " + levelProgress.dropsCollected + "/" + obj.amount;
@@ -1454,6 +1679,13 @@ function newGame() {
   boardAnimating = false;
   cascadePromise = null;
   particles = [];
+  safeAnims = [];
+  safeExplosions = [];
+  idolExplosions = [];
+  safeBlastCenters = [];
+  safeBlockers.clear();
+  idolAnims = [];
+  idolBlockers.clear();
   comboPopup = null;
   comboBonusUntil = 0;
   comboBonusPct = 0;
@@ -1535,6 +1767,28 @@ function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 
     finishDrawCell();
     return;
   }
+  if (isSafe(c)) {
+    const anim = safeAnimAt(gx, gy, performance.now());
+    const isDeath = anim && anim.type === "death";
+    const drawScale = scale * (anim && anim.type === "pulse" ? anim.scale : isDeath ? anim.scale : 1);
+    const drawAlpha = alpha * (anim ? anim.alpha : 1);
+    const adx = dx + (anim ? anim.dx : 0);
+    const ady = dy + (anim ? anim.dy : 0);
+    const maxDim = isDeath ? CELL * 3.2 : SPRITE_MAX_SIZE;
+    const sw = Math.min(maxDim, SPRITE_SIZE * drawScale * sx);
+    const sh = Math.min(maxDim, SPRITE_SIZE * drawScale * sy);
+    const img = SAFE_IMAGES[safeLevel(c) - 1];
+    ctx.globalAlpha = drawAlpha;
+    if (img && img.complete && img.naturalWidth > 0)
+      ctx.drawImage(img, cx - sw / 2 + adx, cy - sh / 2 + ady, sw, sh);
+    else {
+      ctx.fillStyle = "#8a7040";
+      roundRect(cx - sw / 2 + adx, cy - sh / 2 + ady, sw, sh, 10);
+      ctx.fill();
+    }
+    finishDrawCell();
+    return;
+  }
   const bc = baseColor(c);
   let img;
   if (isLineH(c)) img = HLINE_IMAGES[bc % HLINE_IMAGES.length];
@@ -1562,6 +1816,7 @@ function drawCell(gx, gy, c, scale = 1, alpha = 1, dx = 0, dy = 0, sx = 1, sy = 
 
 function sparkleOf(c) {
   if (isIdol(c)) return "#d8c9ff";
+  if (isSafe(c)) return "#ffd45a";
   if (isGem(c)) return "#ff6eb4";
   const bc = baseColor(c);
   if (bc < 0) return "#ffffff";
@@ -1700,7 +1955,8 @@ function render() {
       }
     }
   }
-
+  drawSafeDeathOverlays(performance.now());
+  drawIdolDeathOverlays(performance.now());
 }
 
 // Idle hint: redraw the settled board with the two suggested tiles pulsing —
@@ -1855,6 +2111,490 @@ function spawnExplosionDebris(matched) {
   }
 }
 
+function occupiedCellsNear(b, x, y, maxDist) {
+  const out = [];
+  for (let nx = 0; nx < b.width; nx++) {
+    for (let ny = 0; ny < b.height; ny++) {
+      const dist = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+      if (dist === 0 || dist > maxDist) continue;
+      if (isVoidCell(b, nx, ny)) continue;
+      if (b.grid[nx][ny] === EMPTY) continue;
+      out.push({ x: nx, y: ny, dist });
+    }
+  }
+  out.sort((a, b) => a.dist - b.dist || a.x - b.x || a.y - b.y);
+  return out;
+}
+
+function spawnGoldTowardTargets(fromX, fromY, targets, kind) {
+  if (!targets.length) return;
+  const cx = fromX * CELL + CELL / 2;
+  const cy = (HEIGHT - 1 - fromY) * CELL + CELL / 2;
+  for (const t of targets) {
+    const tx = t.x * CELL + CELL / 2;
+    const ty = (HEIGHT - 1 - t.y) * CELL + CELL / 2;
+    const dx = tx - cx;
+    const dy = ty - cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const sp = kind === "bar" ? 95 + Math.random() * 55 : 110 + Math.random() * 70;
+    const life = kind === "bar" ? 0.55 + Math.random() * 0.25 : 0.42 + Math.random() * 0.2;
+    particles.push({
+      x: cx + (Math.random() - 0.5) * 10,
+      y: cy + (Math.random() - 0.5) * 10,
+      vx: (dx / dist) * sp + (Math.random() - 0.5) * 28,
+      vy: (dy / dist) * sp + (Math.random() - 0.5) * 28 - 18,
+      life,
+      maxLife: life,
+      size: kind === "bar" ? 9 + Math.random() * 7 : 4 + Math.random() * 3,
+      color: kind === "bar" ? "#ffc840" : "#ffe566",
+      shape: kind === "bar" ? "goldBar" : "goldPlate",
+      rot: Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 8,
+    });
+  }
+}
+
+function spawnSafeGoldPlates(x, y, count) {
+  const near = occupiedCellsNear(board, x, y, 1);
+  if (!near.length) return;
+  const picks = [];
+  for (let i = 0; i < count; i++) picks.push(near[i % near.length]);
+  spawnGoldTowardTargets(x, y, picks, "plate");
+}
+
+function spawnSafeExplosion(x, y) {
+  const cx = x * CELL + CELL / 2;
+  const cy = (HEIGHT - 1 - y) * CELL + CELL / 2;
+  safeExplosions.push({ x: cx, y: cy, start: performance.now(), dur: 520 });
+  spawnDebrisAt(x, y, toSafe(1));
+  for (let i = 0; i < 40; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 160 + Math.random() * 280;
+    const life = 0.3 + Math.random() * 0.45;
+    const isStar = Math.random() < 0.4;
+    const p = {
+      x: cx + (Math.random() - 0.5) * CELL * 0.4,
+      y: cy + (Math.random() - 0.5) * CELL * 0.4,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp - 70,
+      life,
+      maxLife: life,
+      size: 3 + Math.random() * 7,
+      color: Math.random() < 0.55 ? "#ffd45a" : "#ff8c20",
+      shape: isStar ? "star" : "rock",
+      rot: Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 14,
+      float: false,
+      gravity: 360,
+    };
+    if (!isStar) {
+      const n = 5 + (Math.random() * 3 | 0);
+      p.verts = [];
+      for (let j = 0; j < n; j++) p.verts.push(0.6 + Math.random() * 0.5);
+    }
+    particles.push(p);
+  }
+}
+
+function spawnSafeGoldBars(x, y, count) {
+  const cx = x * CELL + CELL / 2;
+  const cy = (HEIGHT - 1 - y) * CELL + CELL / 2;
+  const G = 640;
+  for (let i = 0; i < count; i++) {
+    // Burst the bars outward in every direction (slight upward bias) with a
+    // wide spread of speeds, so they scatter far instead of clustering.
+    const ang = Math.random() * Math.PI * 2;
+    const speed = 260 + Math.random() * 560;
+    const vx = Math.cos(ang) * speed;
+    const vy = Math.sin(ang) * speed - 150;
+    const life = 2.6 + Math.random() * 2.4;
+    particles.push({
+      x: cx + (Math.random() - 0.5) * CELL * 0.5,
+      y: cy + (Math.random() - 0.5) * CELL * 0.5,
+      vx,
+      vy,
+      life,
+      maxLife: life,
+      size: 6.5 + Math.random() * 5,
+      shape: "goldBar",
+      rot: Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 7,
+      float: false,
+      gravity: G,
+    });
+  }
+}
+
+function triggerSafeHit(x, y, removed, prevLevel) {
+  const now = performance.now();
+  safeAnims = safeAnims.filter((a) => !(a.x === x && a.y === y));
+  if (removed) {
+    safeBlockers.add(x + "," + y);
+    safeAnims.push({
+      x, y, type: "death", level: prevLevel, start: now, dur: SAFE_DEATH_MS, barsSpawned: false,
+    });
+  } else {
+    safeAnims.push({ x, y, type: "pulse", level: prevLevel, start: now, dur: 300 });
+    spawnSafeGoldPlates(x, y, 2 + (Math.random() * 2 | 0));
+  }
+}
+
+function safeAnimAt(x, y, now) {
+  const anim = safeAnims.find((a) => a.x === x && a.y === y && now - a.start < a.dur);
+  if (!anim) return null;
+  const t = Math.min(1, (now - anim.start) / anim.dur);
+  if (anim.type === "pulse") {
+    const pulse = 1 + 0.2 * Math.sin(t * Math.PI);
+    return { type: "pulse", scale: pulse, dx: 0, dy: 0, alpha: 1, level: anim.level };
+  }
+  const elapsed = now - anim.start;
+  const progress = t;
+  const shakeRamp = Math.pow(progress, 0.32);
+  const amp = 0.06 + 0.36 * shakeRamp * shakeRamp;
+  const freqX = 32 + 108 * shakeRamp;
+  const freqY = 38 + 112 * shakeRamp;
+  const shakeX = Math.sin(elapsed * 0.001 * freqX) * amp * CELL * 0.12;
+  const shakeY = Math.cos(elapsed * 0.001 * freqY) * amp * CELL * 0.12;
+  const vanishStart = 0.79;
+  let scale;
+  if (progress < vanishStart) {
+    scale = 1 + (progress / vanishStart);
+  } else {
+    const vt = (progress - vanishStart) / (1 - vanishStart);
+    const ease = vt * vt * (3 - 2 * vt);
+    scale = 2 + ease * (SAFE_DEATH_COVER_SCALE - 2);
+  }
+  return { type: "death", scale, dx: shakeX, dy: shakeY, alpha: 1, level: anim.level };
+}
+
+function finishSafeDeathAnim(a) {
+  if (a.barsSpawned) return;
+  a.barsSpawned = true;
+  a.exploded = true;
+  spawnSafeExplosion(a.x, a.y);
+  spawnSafeGoldBars(a.x, a.y, 30);
+  safeBlockers.delete(a.x + "," + a.y);
+  safeBlastCenters.push({ x: a.x, y: a.y });
+}
+
+function finishIdolDeathAnim(a) {
+  idolBlockers.delete(a.x + "," + a.y);
+  if (a.rocksSpawned) return;
+  a.rocksSpawned = true;
+  spawnIdolExplosion(a.x, a.y);
+  spawnIdolRocks(a.x, a.y);
+}
+
+function spawnIdolRocks(gridX, gridY) {
+  if (particles.length > 200) particles.length = 150;
+  const cx = gridX * CELL + CELL / 2;
+  const cy = (HEIGHT - 1 - gridY) * CELL + CELL / 2;
+  for (let i = 0; i < 25; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const speed = 120 + Math.random() * 130; // Slightly faster throwing speed
+    const vx = Math.cos(a) * speed;
+    const vy = Math.sin(a) * speed - 20;
+    const life = 0.3 + Math.random() * 0.25; // Slightly longer visible flight time
+    const size = 7 + Math.random() * 9;
+    particles.push({
+      x: cx + (Math.random() - 0.5) * CELL * 0.4,
+      y: cy + (Math.random() - 0.5) * CELL * 0.4,
+      vx,
+      vy,
+      life,
+      maxLife: life,
+      size,
+      color: "#555555",
+      shape: "idolRock",
+      rot: Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 12, // Faster spin
+      float: false,
+      gravity: 300 // Slightly stronger gravity for nicer arcs
+    });
+  }
+}
+
+// A safe's explosion hits every object in the 3x3 block around it — left,
+// right, top, bottom and the four corners. Each object takes exactly one tier
+// of damage, like a regular adjacent match: candies pop with the usual
+// shrink-fade-and-bubble, idols drop one level (gone at the lowest), and safes
+// drop one level but are never destroyed by the blast. Stripe specials caught
+// in the blast still fire their full row/column wave (chaining into others).
+async function blastSafeNeighbors(speed = 1) {
+  if (safeBlastCenters.length === 0) return;
+  const waveSpd = autoFinishing ? AUTO_WAVE_SPEED : 0.48;
+  const cells = new Set();
+  for (const c of safeBlastCenters) {
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = c.x + dx, ny = c.y + dy;
+        if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) continue;
+        if (isVoidCell(board, nx, ny)) continue;
+        if (board.grid[nx][ny] !== EMPTY) cells.add(nx + "," + ny);
+      }
+    }
+  }
+  safeBlastCenters = [];
+  if (cells.size === 0) return;
+
+  // Stripe specials in range detonate their whole row/column (and chain into
+  // any other stripes the wave passes through).
+  const triggers = [];
+  for (const key of cells) {
+    const [x, y] = key.split(",").map(Number);
+    const c = board.grid[x][y];
+    if (isLineH(c)) triggers.push({ x, y, horizontal: true });
+    else if (isLineV(c)) triggers.push({ x, y, horizontal: false });
+  }
+  const waveOrdered = triggers.length > 0
+    ? collectLineWaveCells(triggers, board.grid, WIDTH, HEIGHT, board.voidCells)
+    : [];
+  const waveSet = new Set(waveOrdered);
+  const waveSnap = new Map();
+  for (const k of waveOrdered) {
+    const [x, y] = k.split(",").map(Number);
+    waveSnap.set(k, board.get(x, y));
+  }
+
+  // Everything else in the blast radius takes one tier of damage by type.
+  const popSet = new Set(); // candies/gems removed outright → combo-kill pop
+  for (const key of cells) {
+    if (waveSet.has(key)) continue; // handled by the wave instead
+    const [x, y] = key.split(",").map(Number);
+    const c = board.grid[x][y];
+    if (isSafe(c)) {
+      // Chip the safe down one tier but never finish it off here.
+      const lvl = safeLevel(c);
+      if (lvl > 1) {
+        board.grid[x][y] = c - 1;
+        if (typeof onSafeDamaged === "function") onSafeDamaged(false);
+        triggerSafeHit(x, y, false, lvl);
+      }
+    } else if (isIdol(c)) {
+      const lvl = idolLevel(c);
+      const removed = lvl <= 1;
+      board.grid[x][y] = removed ? EMPTY : c - 1;
+      if (typeof onIdolDamaged === "function") onIdolDamaged(removed);
+      triggerIdolHit(x, y, removed, lvl);
+    } else {
+      popSet.add(key);
+    }
+  }
+
+  if (popSet.size > 0) {
+    spawnExplosionDebris(popSet);
+    spawnSparkles(popSet);
+    await animateClear(popSet, speed);
+    board.clearMatches(popSet);
+  }
+
+  if (waveOrdered.length > 0) {
+    if (levelProgress) levelProgress.stripes += triggers.length;
+    await animateLineWaveClear(waveOrdered, waveSnap, waveSpd);
+  }
+}
+
+function pruneSafeAnims(now) {
+  safeAnims = safeAnims.filter((a) => {
+    if (now - a.start >= a.dur) {
+      if (a.type === "death") finishSafeDeathAnim(a);
+      return false;
+    }
+    return true;
+  });
+}
+
+function hasSafeBlockers() {
+  return safeBlockers.size > 0;
+}
+
+function hasIdolBlockers() {
+  return idolBlockers.size > 0;
+}
+
+function hasBlockers() {
+  return safeBlockers.size > 0 || idolBlockers.size > 0;
+}
+
+function safeBlockedColumns() {
+  const cols = new Set();
+  for (const key of safeBlockers) cols.add(Number(key.split(",")[0]));
+  return cols;
+}
+
+function blockedColumns() {
+  const cols = new Set();
+  for (const key of safeBlockers) cols.add(Number(key.split(",")[0]));
+  for (const key of idolBlockers) cols.add(Number(key.split(",")[0]));
+  return cols;
+}
+
+function pruneIdolAnims(now) {
+  idolAnims = idolAnims.filter((a) => {
+    if (now - a.start >= a.dur) {
+      if (a.type === "death") finishIdolDeathAnim(a);
+      return false;
+    }
+    return true;
+  });
+}
+
+async function finishBlockersCascade(speed = 1) {
+  await animateBlockersHold(speed);
+  await blastSafeNeighbors(speed);
+  if (hasBlockers()) {
+    await cascadeGravityWithBlockersHold(speed);
+    return;
+  }
+  const moves = board.applyGravityMapped();
+  const spawns = board.refillMapped();
+  await animateFall(moves, spawns, speed);
+}
+
+async function cascadeGravityWithBlockersHold(speed = 1) {
+  const skip = blockedColumns();
+  const moves = board.applyGravityMapped({ skipColumns: skip });
+  const spawns = board.refillMapped({ skipColumns: skip });
+  if (moves.length > 0 || spawns.length > 0)
+    await animateFall(moves, spawns, speed);
+  await finishBlockersCascade(speed);
+}
+
+function animateVanishFromSnap(matched, snap, speed = 1) {
+  const cells = [];
+  for (const k of matched) {
+    const [x, y] = k.split(",").map(Number);
+    cells.push({ x, y, color: snap.get(k) });
+  }
+  return animate(Math.max(40, Math.round(200 * speed)), (t) => {
+    clear();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++) {
+        const k = x + "," + y;
+        if (matched.has(k)) {
+          drawBoardCell(x, y, true);
+          const c = snap.get(k);
+          if (c !== undefined) {
+            drawCell(x, y, c, 1 - 0.5 * t, 1 - t);
+            drawCellBubble(x, y, t, sparkleOf(c));
+          }
+        } else {
+          drawBoardCell(x, y);
+        }
+      }
+    drawSafeDeathOverlays(performance.now());
+    drawIdolDeathOverlays(performance.now());
+  });
+}
+
+function animateBlockersHold(speed = 1) {
+  const maxSafeDur = hasSafeBlockers() ? SAFE_DEATH_MS : 0;
+  const maxIdolDur = hasIdolBlockers() ? IDOL_DEATH_MS : 0;
+  const maxDur = Math.max(maxSafeDur, maxIdolDur);
+  const dur = Math.max(40, Math.round(maxDur * speed));
+  return animate(dur, (frameT) => {
+    const now = performance.now();
+    clear();
+    for (let x = 0; x < WIDTH; x++)
+      for (let y = 0; y < HEIGHT; y++)
+        drawBoardCell(x, y);
+    drawSafeDeathOverlays(now);
+    drawIdolDeathOverlays(now);
+    for (const a of safeAnims) {
+      if (a.type !== "death" || a.barsSpawned) continue;
+      if (now - a.start >= a.dur) finishSafeDeathAnim(a);
+    }
+    for (const a of idolAnims) {
+      if (a.type !== "death" || a.rocksSpawned) continue;
+      if (now - a.start >= a.dur) finishIdolDeathAnim(a);
+    }
+  }).then(() => {
+    const now = performance.now();
+    for (const a of safeAnims) {
+      if (a.type === "death" && !a.barsSpawned) finishSafeDeathAnim(a);
+    }
+    for (const a of idolAnims) {
+      if (a.type === "death" && !a.rocksSpawned) finishIdolDeathAnim(a);
+    }
+    pruneSafeAnims(now);
+    pruneIdolAnims(now);
+  });
+}
+
+function drawSafeDeathOverlays(now) {
+  for (const a of safeAnims) {
+    if (a.type !== "death" || a.exploded || now - a.start >= a.dur) continue;
+    const state = safeAnimAt(a.x, a.y, now);
+    if (!state) continue;
+    drawCell(a.x, a.y, toSafe(state.level), 1, 1, state.dx, state.dy, 1, 1, 0, false);
+  }
+}
+
+function drawIdolDeathOverlays(now) {
+  for (const a of idolAnims) {
+    if (a.type !== "death" || a.rocksSpawned || now - a.start >= a.dur) continue;
+    const state = idolAnimAt(a.x, a.y, now);
+    if (!state) continue;
+    drawCell(a.x, a.y, toIdol(state.level), state.scale, state.alpha, state.dx, state.dy, 1, 1, 0, false);
+  }
+}
+
+function drawSafeExplosionFx(now) {
+  safeExplosions = safeExplosions.filter((e) => now - e.start < e.dur);
+  for (const e of safeExplosions) {
+    const t = (now - e.start) / e.dur;
+    const alpha = 1 - t * t;
+    const r = CELL * (0.55 + t * 5.2);
+    fxCtx.save();
+    const grad = fxCtx.createRadialGradient(e.x, e.y, r * 0.08, e.x, e.y, r);
+    grad.addColorStop(0, "rgba(255, 240, 160, " + (alpha * 0.95) + ")");
+    grad.addColorStop(0.35, "rgba(255, 170, 40, " + (alpha * 0.55) + ")");
+    grad.addColorStop(0.7, "rgba(255, 90, 20, " + (alpha * 0.22) + ")");
+    grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    fxCtx.fillStyle = grad;
+    fxCtx.beginPath();
+    fxCtx.arc(e.x, e.y, r, 0, Math.PI * 2);
+    fxCtx.fill();
+    fxCtx.lineWidth = 5 * (1 - t * 0.6);
+    fxCtx.strokeStyle = "rgba(255, 255, 220, " + (alpha * 0.85) + ")";
+    fxCtx.stroke();
+    const r2 = r * 0.62;
+    const grad2 = fxCtx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r2);
+    grad2.addColorStop(0, "rgba(255, 255, 255, " + (alpha * 0.7) + ")");
+    grad2.addColorStop(0.5, "rgba(255, 200, 60, " + (alpha * 0.35) + ")");
+    grad2.addColorStop(1, "rgba(255, 120, 20, 0)");
+    fxCtx.fillStyle = grad2;
+    fxCtx.beginPath();
+    fxCtx.arc(e.x, e.y, r2, 0, Math.PI * 2);
+    fxCtx.fill();
+    fxCtx.restore();
+  }
+}
+
+function drawIdolExplosionFx(now) {
+  idolExplosions = idolExplosions.filter((e) => now - e.start < e.dur);
+  for (const e of idolExplosions) {
+    const t = (now - e.start) / e.dur;
+    const alpha = 1 - t * t;
+    const r = CELL * (0.55 + t * 4.2);
+    fxCtx.save();
+    const grad = fxCtx.createRadialGradient(e.x, e.y, r * 0.08, e.x, e.y, r);
+    grad.addColorStop(0, "rgba(220, 220, 255, " + (alpha * 0.95) + ")");
+    grad.addColorStop(0.35, "rgba(140, 140, 160, " + (alpha * 0.55) + ")");
+    grad.addColorStop(0.7, "rgba(80, 80, 90, " + (alpha * 0.22) + ")");
+    grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    fxCtx.fillStyle = grad;
+    fxCtx.beginPath();
+    fxCtx.arc(e.x, e.y, r, 0, Math.PI * 2);
+    fxCtx.fill();
+    fxCtx.lineWidth = 4 * (1 - t * 0.6);
+    fxCtx.strokeStyle = "rgba(230, 230, 250, " + (alpha * 0.8) + ")";
+    fxCtx.stroke();
+    fxCtx.restore();
+  }
+}
+
 // Irregular chunky polygon — reads as a little colored rock shard.
 function drawRockParticle(p) {
   const v = p.verts;
@@ -1870,6 +2610,77 @@ function drawRockParticle(p) {
   }
   fxCtx.closePath();
   fxCtx.fill();
+  fxCtx.restore();
+}
+
+function drawIdolRockParticle(p) {
+  fxCtx.save();
+  fxCtx.translate(p.x, p.y);
+  fxCtx.rotate(p.rot || 0);
+  const w = p.size;
+  const h = p.size;
+  if (rocksLoaded) {
+    fxCtx.drawImage(keyedRocksCanvas, -w / 2, -h / 2, w, h);
+  } else {
+    fxCtx.fillStyle = "#4a4a4a";
+    fxCtx.beginPath();
+    const verts = [0.8, 1.1, 0.9, 1.2, 0.75, 1.0];
+    for (let i = 0; i < verts.length; i++) {
+      const a = (i / verts.length) * Math.PI * 2;
+      const r = (p.size / 2) * verts[i];
+      const px = Math.cos(a) * r;
+      const py = Math.sin(a) * r;
+      if (i === 0) fxCtx.moveTo(px, py);
+      else fxCtx.lineTo(px, py);
+    }
+    fxCtx.closePath();
+    fxCtx.fill();
+  }
+  fxCtx.restore();
+}
+
+function fxRoundRect(c, px, py, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(px + r, py);
+  c.arcTo(px + w, py, px + w, py + h, r);
+  c.arcTo(px + w, py + h, px, py + h, r);
+  c.arcTo(px, py + h, px, py, r);
+  c.arcTo(px, py, px + w, py, r);
+  c.closePath();
+}
+
+function drawGoldPlateParticle(p) {
+  const w = p.size * 1.8;
+  const h = p.size * 1.1;
+  fxCtx.save();
+  fxCtx.translate(p.x, p.y);
+  fxCtx.rotate(p.rot || 0);
+  fxCtx.fillStyle = p.color;
+  fxRoundRect(fxCtx, -w / 2, -h / 2, w, h, Math.max(1, p.size * 0.25));
+  fxCtx.fill();
+  fxCtx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+  fxCtx.lineWidth = 1;
+  fxCtx.stroke();
+  fxCtx.restore();
+}
+
+function drawGoldBarParticle(p) {
+  const w = p.size * 2.4;
+  const aspect = goldBarImg.naturalWidth > 0
+    ? goldBarImg.naturalHeight / goldBarImg.naturalWidth
+    : 0.42;
+  const h = w * aspect;
+  fxCtx.save();
+  fxCtx.translate(p.x, p.y);
+  fxCtx.rotate(p.rot || 0);
+  if (goldBarImg.complete && goldBarImg.naturalWidth > 0)
+    fxCtx.drawImage(goldBarImg, -w / 2, -h / 2, w, h);
+  else {
+    fxCtx.fillStyle = "#ffc840";
+    fxRoundRect(fxCtx, -w / 2, -h / 2, w, h, Math.max(1, p.size * 0.2));
+    fxCtx.fill();
+  }
   fxCtx.restore();
 }
 
@@ -2164,10 +2975,14 @@ function updateFx(now, dt) {
     p.life -= dt;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    if (!p.float) p.vy += G * dt;            // stars hover; shards/sparks fall
+    const grav = p.gravity || G;
+    if (!p.float) p.vy += grav * dt;
     if (p.vrot) p.rot += p.vrot * dt;
   }
   particles = particles.filter((p) => p.life > 0);
+
+  drawSafeExplosionFx(now);
+  drawIdolExplosionFx(now);
 
   fxCtx.shadowBlur = 8;
   for (const p of particles) {
@@ -2175,7 +2990,14 @@ function updateFx(now, dt) {
     fxCtx.fillStyle = p.color;
     fxCtx.shadowColor = p.color;
     if (p.shape === "rock") drawRockParticle(p);
+    else if (p.shape === "idolRock") {
+      fxCtx.shadowBlur = 0;
+      drawIdolRockParticle(p);
+      fxCtx.shadowBlur = 8;
+    }
     else if (p.shape === "star") drawStarParticle(p);
+    else if (p.shape === "goldPlate") drawGoldPlateParticle(p);
+    else if (p.shape === "goldBar") drawGoldBarParticle(p);
     else fxCtx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
   }
   fxCtx.shadowBlur = 0;
@@ -2367,8 +3189,9 @@ function animateLineWaveClear(keysOrdered, tileSnap, speed = 1) {
             drawCellBubble(cell.x, cell.y, p, cell.sparkle);
           }
         }
+        drawSafeDeathOverlays(now);
+        drawIdolDeathOverlays(now);
 
-      
         if (elapsed < totalDur) requestAnimationFrame(frame);
         else finish();
       } catch (err) {
@@ -2398,7 +3221,8 @@ function animateClear(matched, speed = 1) {
           drawBoardCell(x, y);
         }
       }
-
+    drawSafeDeathOverlays(performance.now());
+    drawIdolDeathOverlays(performance.now());
   });
 }
 
@@ -2420,7 +3244,8 @@ function animateFall(moves, spawns, speed = 1) {
       }
     for (const it of items)
       drawCell(it.x, it.fromY + (it.toY - it.fromY) * t, it.color);
-
+    drawSafeDeathOverlays(performance.now());
+    drawIdolDeathOverlays(performance.now());
   }, easeFallBounce);
 }
 
@@ -2461,7 +3286,8 @@ function animateClearAndFall(matched, snap, moves, spawns, speed = 1) {
     // Objects above drop into place simultaneously.
     for (const it of items)
       drawCell(it.x, it.fromY + (it.toY - it.fromY) * ft, it.color);
-
+    drawSafeDeathOverlays(performance.now());
+    drawIdolDeathOverlays(performance.now());
   });
 }
 
@@ -2531,9 +3357,13 @@ async function resolveCascades(fast) {
 
       damagePillowsOnCells(board, allClear);
       board.damageAdjacentChains(allClear);
-      const moves = board.applyGravityMapped();
-      const spawns = board.refillMapped();
-      await animateFall(moves, spawns, spd);
+      if (hasBlockers()) {
+        await cascadeGravityWithBlockersHold(spd);
+      } else {
+        const moves = board.applyGravityMapped();
+        const spawns = board.refillMapped();
+        await animateFall(moves, spawns, spd);
+      }
     } else {
       // Common combo: the matched objects shrink away fast WHILE the objects
       // above them drop into the gap — the vanish and the fall play together,
@@ -2549,9 +3379,14 @@ async function resolveCascades(fast) {
 
       damagePillowsOnCells(board, allClear);
       board.damageAdjacentChains(allClear);
-      const moves = board.applyGravityMapped();
-      const spawns = board.refillMapped();
-      await animateClearAndFall(matchOnly, snap, moves, spawns, spd);
+      if (hasBlockers()) {
+        await animateVanishFromSnap(matchOnly, snap, spd);
+        await cascadeGravityWithBlockersHold(spd);
+      } else {
+        const moves = board.applyGravityMapped();
+        const spawns = board.refillMapped();
+        await animateClearAndFall(matchOnly, snap, moves, spawns, spd);
+      }
     }
 
     collectGemsAtExits();
@@ -2846,6 +3681,16 @@ function tick(ts) {
 
   updateComboBonusHud(ts);
   updateFx(ts, dt);
+  pruneSafeAnims(ts);
+  if (
+    safeAnims.length > 0 &&
+    !boardAnimating &&
+    !cascadePromise &&
+    !dragging &&
+    !hint
+  ) {
+    render();
+  }
 
   if (!gameOver && !boardAnimating && !cascadePromise && !passCelebrationPending) checkLevelEnd();
 
@@ -2948,27 +3793,6 @@ btnBackMenu.addEventListener("click", () => {
   returnToMenu();
 });
 
-const splash = document.getElementById("splash");
-const splashLogo = document.getElementById("splash-logo");
-const splashLoader = document.getElementById("splash-loader");
-const SPLASH_ASSETS = {
-  logo: { desktop: "images/loaders/logobg.png", mobile: "images/loaders/mobileLogobg.png" },
-  loader: { desktop: "images/loaders/loader.png", mobile: "images/loaders/MobileLoader.png" },
-};
-const mobileSplashMq = window.matchMedia("(max-width: 768px)");
-
-function isMobileSplash() {
-  return mobileSplashMq.matches;
-}
-
-function applySplashAssets() {
-  const mobile = isMobileSplash();
-  splashLogo.src = mobile ? SPLASH_ASSETS.logo.mobile : SPLASH_ASSETS.logo.desktop;
-  splashLoader.src = mobile ? SPLASH_ASSETS.loader.mobile : SPLASH_ASSETS.loader.desktop;
-}
-
-applySplashAssets();
-mobileSplashMq.addEventListener("change", applySplashAssets);
 const menuShell = document.getElementById("menu-shell");
 const levelMenu = document.getElementById("level-menu");
 const gameUi = document.getElementById("game-ui");
@@ -2980,6 +3804,77 @@ const arenaPrevBtn = document.getElementById("arena-prev");
 const arenaNextBtn = document.getElementById("arena-next");
 const menuWalletEl = document.getElementById("menu-wallet");
 
+// Background Image Manager
+let currentBgIndex = 1;
+let currentBgType = "menu";
+let bgOverlay = null;
+
+function updateBodyBackground(smooth = true) {
+  if (typeof smooth === "object") smooth = false; // Handle matchMedia Event objects
+  
+  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  const folder = isMobile ? "mobile" : "Desktop";
+  const bgUrl = `images/backgroundImages/${folder}/${BG_IMAGE}.png`;
+  // Trailing color is a fallback layer shown while the image loads — never black.
+  const bgStyle = `linear-gradient(rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.45)), url('${bgUrl}') no-repeat center center / cover #eef5fc`;
+
+  if (!bgOverlay) {
+    bgOverlay = document.getElementById("bg-overlay");
+    if (!bgOverlay) {
+      bgOverlay = document.createElement("div");
+      bgOverlay.id = "bg-overlay";
+      document.body.appendChild(bgOverlay);
+    }
+  }
+
+  if (!smooth) {
+    document.body.style.background = bgStyle;
+    document.body.style.backgroundAttachment = "fixed";
+    bgOverlay.style.opacity = "0";
+    return;
+  }
+
+  // Cross-fade background transition
+  bgOverlay.style.background = bgStyle;
+  bgOverlay.style.backgroundAttachment = "fixed";
+  
+  requestAnimationFrame(() => {
+    bgOverlay.style.opacity = "1";
+  });
+
+  setTimeout(() => {
+    document.body.style.background = bgStyle;
+    document.body.style.backgroundAttachment = "fixed";
+    bgOverlay.style.opacity = "0";
+  }, 500);
+}
+
+function setRandomLevelBackground() {
+  // Background no longer changes per level — one fixed backdrop everywhere.
+  currentBgType = "level";
+  currentBgIndex = 1;
+  updateBodyBackground(true);
+}
+
+function setRandomMenuBackground() {
+  currentBgType = "menu";
+  currentBgIndex = 1; // Locked constantly to bg1 for the arena menu background
+  updateBodyBackground(true);
+}
+
+function updateActiveArenaUI(arena) {
+  const levelMenu = document.getElementById("level-menu");
+  const menuShell = document.getElementById("menu-shell");
+  if (!levelMenu || !menuShell) return;
+  for (let a = 1; a <= 5; a++) {
+    const className = "active-arena-" + a;
+    levelMenu.classList.toggle(className, a === arena);
+    menuShell.classList.toggle(className, a === arena);
+  }
+}
+
+window.matchMedia("(max-width: 768px)").addEventListener("change", () => updateBodyBackground(false));
+
 function scrollToMenuArena(arena, smooth) {
   currentMenuArena = Math.max(1, Math.min(5, arena));
   if (arenasScroll) {
@@ -2990,6 +3885,7 @@ function scrollToMenuArena(arena, smooth) {
   }
   if (arenaPrevBtn) arenaPrevBtn.disabled = currentMenuArena <= 1;
   if (arenaNextBtn) arenaNextBtn.disabled = currentMenuArena >= 5;
+  updateActiveArenaUI(currentMenuArena);
 }
 
 function buildLevelMenu() {
@@ -3056,6 +3952,7 @@ if (arenasScroll) {
       currentMenuArena = arena;
       if (arenaPrevBtn) arenaPrevBtn.disabled = currentMenuArena <= 1;
       if (arenaNextBtn) arenaNextBtn.disabled = currentMenuArena >= 5;
+      updateActiveArenaUI(currentMenuArena);
     }
   }, { passive: true });
 }
@@ -3095,31 +3992,7 @@ function refreshMenu() {
   scrollToMenuArena(menuFocusArena(), true);
 }
 
-// Background Image Manager
-let currentBgIndex = 1;
-let currentBgType = "menu";
 
-function updateBodyBackground() {
-  const isMobile = window.matchMedia("(max-width: 768px)").matches;
-  const folder = isMobile ? "mobile" : "Desktop";
-  const bgUrl = `images/backgroundImages/${folder}/bg${currentBgIndex}.png`;
-  document.body.style.background = `linear-gradient(rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.45)), url('${bgUrl}') no-repeat center center / cover`;
-  document.body.style.backgroundAttachment = "fixed";
-}
-
-function setRandomLevelBackground() {
-  currentBgType = "level";
-  currentBgIndex = Math.floor(Math.random() * 6) + 1;
-  updateBodyBackground();
-}
-
-function setRandomMenuBackground() {
-  currentBgType = "menu";
-  currentBgIndex = Math.floor(Math.random() * 6) + 1;
-  updateBodyBackground();
-}
-
-window.matchMedia("(max-width: 768px)").addEventListener("change", updateBodyBackground);
 
 // Begin (or restart) a level: difficulty, grid size, fresh seed, board. Costs
 // nothing up front — but with no lives left you can't play, so bounce to menu.
@@ -3130,11 +4003,10 @@ function startLevel(level) {
   regenHearts();
   if (hearts <= 0) { returnToMenu(); return; }
 
-  setRandomLevelBackground();
-
   const cfg = levelConfig(level);
   currentLevel = level;
   currentLevelCfg = cfg;
+  setRandomLevelBackground();
   WIDTH = cfg.gridW;
   HEIGHT = cfg.gridH;
   levelTarget = cfg.target || 0;
@@ -3152,6 +4024,13 @@ function startLevel(level) {
 
 function clearBoardFx() {
   particles = [];
+  safeAnims = [];
+  safeExplosions = [];
+  idolExplosions = [];
+  safeBlastCenters = [];
+  safeBlockers.clear();
+  idolAnims = [];
+  idolBlockers.clear();
   comboPopup = null;
   passLevelPopup = null;
   if (fx && fxCtx) fxCtx.clearRect(0, 0, fx.width, fx.height);
@@ -3173,6 +4052,7 @@ function returnToMenu() {
   levelMenu.classList.add("show-grid");
   
   setRandomMenuBackground();
+  updateActiveArenaUI(currentMenuArena);
 
   refreshMenu();
 }
@@ -3197,20 +4077,11 @@ regenHearts();
 renderHearts();
 setInterval(() => { regenHearts(); renderHearts(); }, 1000);
 
-// 1. Show logobg for 3 seconds
-setTimeout(() => {
-  splashLogo.classList.remove("active");
-  splashLoader.classList.add("active");
-
-  // 2. Show loader for 2 seconds, then reveal the level menu
-  setTimeout(() => {
-    splash.style.display = "none";
-    setRandomMenuBackground();
-    refreshMenu();
-    menuShell.classList.add("show");
-    levelMenu.classList.add("show-grid");
-  }, 2000);
-}, 3000);
+setRandomMenuBackground();
+updateActiveArenaUI(menuFocusArena());
+refreshMenu();
+menuShell.classList.add("show");
+levelMenu.classList.add("show-grid");
 
 // One render loop for the whole app; it no-ops until a level is in progress.
 requestAnimationFrame(tick);
@@ -3218,6 +4089,7 @@ requestAnimationFrame(tick);
 window.MAX_LEVEL = MAX_LEVEL;
 window.distributeChains = distributeChains;
 window.distributeIdols = distributeIdols;
+window.distributeSafes = distributeSafes;
 window.chainPlacementForArena = chainPlacementForArena;
 window.chainPlacementForArena2 = chainPlacementForArena2;
 window.idolPlacementForArena = chainPlacementForArena;
