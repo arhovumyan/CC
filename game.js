@@ -989,20 +989,19 @@ function clearCoinRain() {
 }
 
 function spawnCoinRain() {
-  resizeCoinCanvas();
   const w = window.innerWidth;
-  const count = 50 + Math.floor(Math.random() * 51);
+  const count = 35 + Math.floor(Math.random() * 21);
   coinRain = [];
   for (let i = 0; i < count; i++) {
-    const size = 22 + Math.random() * 42;
+    const size = 22 + Math.random() * 32;
     coinRain.push({
       x: Math.random() * w,
-      y: -(30 + Math.random() * (window.innerHeight * 0.65 + 120)),
-      vx: (Math.random() - 0.5) * 90,
-      vy: 140 + Math.random() * 260,
+      y: -(30 + Math.random() * (window.innerHeight * 0.55 + 100)),
+      vx: (Math.random() - 0.5) * 70,
+      vy: 160 + Math.random() * 220,
       size,
       rot: Math.random() * Math.PI * 2,
-      rotSpd: (Math.random() - 0.5) * 5.5,
+      rotSpd: (Math.random() - 0.5) * 4.5,
       flipX: Math.random() < 0.5 ? -1 : 1,
       flipY: Math.random() < 0.5 ? -1 : 1,
     });
@@ -1013,6 +1012,7 @@ function updateFlyingWalletCoins(now) {
   if (flyingWalletCoins.length === 0) return;
   const ready = coinImg.complete && coinImg.naturalWidth > 0;
   const aspect = ready ? coinImg.naturalWidth / coinImg.naturalHeight : 1;
+  const dpr = renderDpr();
   for (const c of flyingWalletCoins) {
     const t = Math.min(1, Math.max(0, (now - c.start) / c.duration));
     const e = 1 - Math.pow(1 - t, 2.2);
@@ -1022,26 +1022,38 @@ function updateFlyingWalletCoins(now) {
     if (!ready) continue;
     const ch = c.size;
     const cw = ch * aspect;
-    coinCtx.save();
+    coinCtx.setTransform(dpr, 0, 0, dpr, x * dpr, y * dpr);
     coinCtx.globalAlpha = alpha;
-    coinCtx.drawImage(coinImg, x - cw / 2, y - ch / 2, cw, ch);
-    coinCtx.restore();
+    coinCtx.drawImage(coinImg, -cw / 2, -ch / 2, cw, ch);
   }
+  coinCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  coinCtx.globalAlpha = 1;
   flyingWalletCoins = flyingWalletCoins.filter((c) => now < c.start + c.duration);
 }
 
 function updateCoinRain(dt) {
+  const hasRain = coinRain && coinRain.length > 0;
+  const hasWallet = flyingWalletCoins && flyingWalletCoins.length > 0;
+
+  if (!hasRain && !hasWallet) {
+    return;
+  }
+
   const w = window.innerWidth;
   const h = window.innerHeight;
   coinCtx.clearRect(0, 0, w, h);
-  updateFlyingWalletCoins(performance.now());
 
-  if (!coinRain || coinRain.length === 0) {
+  if (hasWallet) {
+    updateFlyingWalletCoins(performance.now());
+  }
+
+  if (!hasRain) {
     if (coinRain) clearCoinRain();
     return;
   }
   const ready = coinImg.complete && coinImg.naturalWidth > 0;
   const aspect = ready ? coinImg.naturalWidth / coinImg.naturalHeight : 1;
+  const dpr = renderDpr();
 
   for (const c of coinRain) {
     c.x += c.vx * dt;
@@ -1051,14 +1063,13 @@ function updateCoinRain(dt) {
     if (!ready) continue;
     const ch = c.size;
     const cw = ch * aspect;
-    coinCtx.save();
-    coinCtx.translate(c.x, c.y);
+    coinCtx.setTransform(dpr, 0, 0, dpr, c.x * dpr, c.y * dpr);
     coinCtx.rotate(c.rot);
     coinCtx.scale(c.flipX, c.flipY);
     coinCtx.drawImage(coinImg, -cw / 2, -ch / 2, cw, ch);
-    coinCtx.restore();
   }
 
+  coinCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   coinRain = coinRain.filter((c) => c.y <= h + c.size * 2);
   if (coinRain.length === 0) clearCoinRain();
 }
@@ -2295,7 +2306,7 @@ function spawnIdolRocks(gridX, gridY) {
     const vx = Math.cos(a) * speed;
     const vy = Math.sin(a) * speed - 20;
     const life = 0.3 + Math.random() * 0.25; // Slightly longer visible flight time
-    const size = 7 + Math.random() * 9;
+    const size = 16 + Math.random() * 18; // Make rocks bigger (16px to 34px)
     particles.push({
       x: cx + (Math.random() - 0.5) * CELL * 0.4,
       y: cy + (Math.random() - 0.5) * CELL * 0.4,
@@ -2489,8 +2500,10 @@ function animateVanishFromSnap(matched, snap, speed = 1) {
 }
 
 function animateBlockersHold(speed = 1) {
-  const maxSafeDur = hasSafeBlockers() ? SAFE_DEATH_MS : 0;
-  const maxIdolDur = hasIdolBlockers() ? IDOL_DEATH_MS : 0;
+  // Blocker hold duration is short so that gravity and neighbor blasts start
+  // while the safe/idol are still shaking/exploding!
+  const maxSafeDur = hasSafeBlockers() ? Math.round(SAFE_DEATH_MS * 0.35) : 0; // ~210ms
+  const maxIdolDur = hasIdolBlockers() ? Math.round(IDOL_DEATH_MS * 0.35) : 0; // ~88ms
   const maxDur = Math.max(maxSafeDur, maxIdolDur);
   const dur = Math.max(40, Math.round(maxDur * speed));
   return animate(dur, (frameT) => {
@@ -2511,6 +2524,7 @@ function animateBlockersHold(speed = 1) {
     }
   }).then(() => {
     const now = performance.now();
+    // Force trigger completion for safe/idol death animations early so they release blockers and blast neighbors
     for (const a of safeAnims) {
       if (a.type === "death" && !a.barsSpawned) finishSafeDeathAnim(a);
     }
@@ -3130,8 +3144,9 @@ function drawCellUnderglow(x, y, intensity, glowColor) {
 // end. Each killed object gets the same explosion as a normal pop: it shrinks
 // to half and fades, throws colored rock shards + stars, and blooms a bubble.
 function animateLineWaveClear(keysOrdered, tileSnap, speed = 1) {
-  const popDur = Math.max(80, Math.round(180 * speed));
-  const stagger = Math.max(4, Math.round(7 * speed));
+  // Satisfying visible pop duration, clamped to avoid instant vanishing
+  const popDur = Math.max(160, Math.round(200 * speed));
+  const stagger = Math.max(8, Math.round(16 * speed));
 
   const cells = [];
   for (let i = 0; i < keysOrdered.length; i++) {
@@ -3180,6 +3195,8 @@ function animateLineWaveClear(keysOrdered, tileSnap, speed = 1) {
           if (!cell.sparked) {
             cell.sparked = true;
             spawnDebrisAt(cell.x, cell.y, cell.color);   // rocks + stars
+            // Damage/clear the cell in the grid immediately so death effects sync
+            clearWaveCell(board, cell.x, cell.y);
           }
           drawBoardCell(cell.x, cell.y, true);
           if (local < popDur) {
@@ -3187,6 +3204,12 @@ function animateLineWaveClear(keysOrdered, tileSnap, speed = 1) {
             // shrink to half + fade, bubble blooming inside the box
             drawCell(cell.x, cell.y, cell.color, 1 - 0.5 * p, 1 - p);
             drawCellBubble(cell.x, cell.y, p, cell.sparkle);
+          } else {
+            // Once the pop animation finishes, draw the cell's CURRENT board state (e.g. downgraded idol/safe)
+            const cur = board.get(cell.x, cell.y);
+            if (cur !== EMPTY) {
+              drawCell(cell.x, cell.y, cur);
+            }
           }
         }
         drawSafeDeathOverlays(now);
@@ -3671,7 +3694,9 @@ window.addEventListener("keydown", (e) => {
 
 function tick(ts) {
   if (!lastTs) lastTs = ts;
-  const dt = (ts - lastTs) / 1000;
+  let dt = (ts - lastTs) / 1000;
+  // Clamp dt to a maximum of 33ms (equivalent to 30fps) to prevent physics leaps/lag spikes
+  if (dt > 0.033) dt = 0.033;
   lastTs = ts;
 
   updateCoinRain(dt);
@@ -3989,7 +4014,7 @@ function refreshMenu() {
     btn.classList.toggle("locked", !unlocked);
   });
   renderHearts();
-  scrollToMenuArena(menuFocusArena(), true);
+  scrollToMenuArena(menuFocusArena(), false);
 }
 
 
