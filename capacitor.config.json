@@ -1,0 +1,14 @@
+{
+  "appId": "com.matchduel.game",
+  "appName": "Match Duel",
+  "webDir": "www",
+  "backgroundColor": "#fdfbf7",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "backgroundColor": "#fdfbf7"
+  },
+  "android": {
+    "backgroundColor": "#fdfbf7"
+  }
+}

@@ -1,0 +1,25 @@
+# Node
+node_modules/
+
+# Capacitor generated web bundle (assembled from repo root by scripts/copy-web.mjs)
+www/
+
+# iOS
+ios/App/Pods/
+ios/App/App/public/
+ios/App/build/
+ios/DerivedData/
+*.xcuserstate
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/assets/public/
+android/local.properties
+android/.idea/
+android/captures/
+*.iml
+
+# macOS
+.DS_Store

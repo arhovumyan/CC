@@ -1,0 +1,33 @@
+{
+  "name": "cc",
+  "version": "1.0.0",
+  "description": "An intentionally ugly, single-player match-3 to answer ONE question: **is the core loop fun enough to keep replaying?** Nothing else matters yet.",
+  "main": "game.js",
+  "scripts": {
+    "build:web": "node scripts/copy-web.mjs",
+    "sync": "npm run build:web && cap sync",
+    "ios": "npm run sync && cap open ios",
+    "android": "npm run sync && cap open android",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arhovumyan/CC.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/arhovumyan/CC/issues"
+  },
+  "homepage": "https://github.com/arhovumyan/CC#readme",
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0"
+  }
+}
