@@ -2,9 +2,10 @@
   "name": "cc",
   "version": "1.0.0",
   "description": "An intentionally ugly, single-player match-3 to answer ONE question: **is the core loop fun enough to keep replaying?** Nothing else matters yet.",
-  "main": "game.js",
+  "main": "server.mjs",
   "scripts": {
     "build:web": "node scripts/copy-web.mjs",
+    "start": "npm run build:web && node server.mjs",
     "sync": "npm run build:web && cap sync",
     "ios": "npm run sync && cap open ios",
     "android": "npm run sync && cap open android",
